@@ -1,0 +1,26 @@
+{
+  "test_session": {
+    "history": [
+      [
+        "?????????",
+        "It looks like your message might have gotten cut off or didn't come through fully—it just shows a series of question marks. Could you please clarify or rephrase what you're asking? I'm here to help! 😊"
+      ],
+      [
+        "Can you make me laughing?",
+        "Absolutely! Let’s give it a shot—here’s a quick one for you:\n\n**Why don't skeletons fight each other?**  \n…Because they don’t have the *guts*! 💀\n\nOr how about this:\n\n**I told my dog a joke about bones.**  \nHe didn’t laugh… but he *pawed* at it. 🐾\n\nAnd if you're into puns:  \n**I’m reading a book about anti-gravity.**  \nIt’s impossible to put down!\n\n😄 Want another? Or maybe a silly story, a dad joke, or even a ridiculous riddle? Just say the word!"
+      ],
+      [
+        "Can you show me your markdown grammar？",
+        "Of course! While I don't have a dedicated \"markdown grammar\" tool, I can certainly demonstrate and explain how I use **Markdown** to format responses. Here's a quick overview of common Markdown syntax I support:\n\n---\n\n### 📝 Common Markdown Syntax\n\n#### 1. **Headers**\n```markdown\n# Heading 1\n## Heading 2\n### Heading 3\n```\n\n#### 2. **Emphasis**\n```markdown\n*Italic* or _Italic_  \n**Bold** or __Bold__  \n***Bold Italic*** or ___Bold Italic___\n```\n\n#### 3. **Lists**\n- **Unordered:**\n  ```markdown\n  - Item 1\n  - Item 2\n    - Nested item\n  ```\n- **Ordered:**\n  ```markdown\n  1. First\n  2. Second\n  ```\n\n#### 4. **Links & Images**\n```markdown\n[Link text](https://example.com)  \n![Alt text](image-url.jpg)\n```\n\n#### 5. **Code**\n- Inline: `` `code` ``\n- Block:\n  ````markdown\n  ```python\n  print(\"Hello, world!\")\n  ```\n  ````\n\n#### 6. **Blockquotes**\n```markdown\n> This is a quote.\n```\n\n#### 7. **Horizontal Rule**\n```markdown\n---\n```\n\n#### 8. **Tables**\n```markdown\n| Name    | Age |\n|---------|-----|\n| Alice   | 30  |\n| Bob     | 25  |\n```\n\n---\n\n### ✅ Example in Action\n\nHere’s a formatted snippet using the above:\n\n> 💡 **Pro Tip**: Always test your Markdown in the target platform—some (like GitHub, Discord, or Reddit) support slightly different flavors!\n\n| Feature      | Supported? |\n|--------------|------------|\n| Bold/Italic  | ✅ Yes     |\n| Tables       | ✅ Yes     |\n| Task Lists   | ❌ Not always |\n| Footnotes    | ❌ No      |\n\n---\n\nLet me know if you'd like a deeper dive into any specific part—or if you want me to format something fun in Markdown for you! 😊"
+      ],
+      [
+        "what time is it now, please answer me with markdown",
+        "Here's the current time formatted in Markdown:\n\n```markdown\n## 🕒 Current Time\n\n**Date & Time:** 2026-03-09 15:15\n```\n\nOr as a nicely styled block:\n\n> ⏰ **It's currently**: `2026-03-09 15:15`  \n> *Time flies—make the most of your day!* 😊"
+      ],
+      [
+        "just show you markdown!",
+        "```markdown\n# Just showing Markdown!\n\n- **Bold text**\n- *Italic text*\n- `Inline code`\n- > Blockquote\n- [Link](https://example.com)\n\n| Tables | Are | Cool |\n|--------|-----|------|\n| col 1  | col 2 | col 3 |\n\n```python\n# Code block\nprint(\"Hello, world!\")\n```\n```"
+      ]
+    ]
+  }
+}

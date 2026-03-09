@@ -5,12 +5,14 @@ python-dotenv
 uvicorn
 fastapi
 pydantic
+aiofiles
 
 # LangChain 核心库
 langchain
 langchain-core
 langchain-community
 langchain-chroma
+pypdf
 
 # 向量数据库
 chromadb

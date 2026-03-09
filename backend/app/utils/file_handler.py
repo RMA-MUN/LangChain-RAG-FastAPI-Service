@@ -3,27 +3,31 @@ import os, hashlib
 from langchain_core.documents import Document
 
 from app.utils.logger_handler import logger
+from app.utils.path_tool import get_abstract_path
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 
 
 def get_file_md5_hex(file_path: str) -> str:
     """获取文件的md5值"""
-    if not os.path.exists(file_path):
-        logger.error(f"【md5计算】文件路径 {file_path} 不存在")
+    # 处理路径，确保使用绝对路径
+    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    
+    if not os.path.exists(abs_file_path):
+        logger.error(f"【md5计算】文件路径 {abs_file_path} 不存在")
         return ""
 
-    if not os.path.isfile(file_path):
-        logger.error(f"【md5计算】文件路径 {file_path} 不是文件")
+    if not os.path.isfile(abs_file_path):
+        logger.error(f"【md5计算】文件路径 {abs_file_path} 不是文件")
         return ""
 
     md5_object = hashlib.md5()
     chunk_size = 1024
     try:
-        with open(file_path, "rb") as f:
+        with open(abs_file_path, "rb") as f:
             while chunk := f.read(chunk_size):
                 md5_object.update(chunk)
     except Exception as e:
-        logger.error(f"【md5计算】读取文件 {file_path} 时出错: {e}")
+        logger.error(f"【md5计算】读取文件 {abs_file_path} 时出错: {e}")
         return ""
 
     return md5_object.hexdigest()
@@ -35,18 +39,22 @@ def listdir_allowed_type(path: str, allowed_types: tuple[str]) -> tuple:
     :param allowed_types: 允许的文件类型元组
     :return: 符合条件的文件路径列表
     """
-    if not os.path.exists(path):
-        logger.error(f"【文件列表】目录路径 {path} 不存在")
-        return allowed_types
+    # 处理路径，确保使用绝对路径
+    abs_path = get_abstract_path(path) if not os.path.isabs(path) else path
+    
+    if not os.path.exists(abs_path):
+        logger.error(f"【文件列表】目录路径 {abs_path} 不存在")
+        return ()
 
-    if not os.path.isdir(path):
-        logger.error(f"【文件列表】目录路径 {path} 不是目录")
-        return allowed_types
+    if not os.path.isdir(abs_path):
+        logger.error(f"【文件列表】目录路径 {abs_path} 不是目录")
+        return ()
 
     file_list = []
-    for f in os.listdir(path):
+    for f in os.listdir(abs_path):
         if f.endswith(allowed_types):
-            file_list.append(os.path.join(path, f))
+            file_path = os.path.join(abs_path, f)
+            file_list.append(file_path)
 
     return tuple(file_list)
 
@@ -58,7 +66,9 @@ def pdf_loader(file_path: str, password: str = None) -> list[Document]:
     :param password: PDF密码（如果有）
     :return: PDF文件内容
     """
-    return PyPDFLoader(file_path, password).load()
+    # 处理路径，确保使用绝对路径
+    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    return PyPDFLoader(abs_file_path, password=password).load()
 
 
 def txt_loader(file_path: str) -> list[Document]:
@@ -67,4 +77,16 @@ def txt_loader(file_path: str) -> list[Document]:
     :param file_path: TXT文件路径
     :return: TXT文件内容
     """
-    return TextLoader(file_path).load()
+    # 处理路径，确保使用绝对路径
+    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    
+    # 使用不同的编码加载文件
+    encodings = ['utf-8', 'gbk']
+    for encoding in encodings:
+        try:
+            return TextLoader(abs_file_path, encoding=encoding).load()
+        except Exception as e:
+            logger.error(f"【文本文件加载】使用编码 {encoding} 加载文件 {abs_file_path} 时出错: {e}")
+            continue
+    # 所有编码都失败，返回空列表
+    return []

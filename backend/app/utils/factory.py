@@ -29,7 +29,7 @@ class ChatModelFactory(BaseModelFactory):
         """生成模型"""
         return ChatTongyi(
             model=rag_config['chat_model_name'],
-            dashscope_api_key=os.getenv('DASHSCOPE_API_KEY')
+            api_key=os.getenv("OPENAI_API_KEY")
         )
 
 
@@ -38,8 +38,8 @@ class EmbedModelFactory(BaseModelFactory):
     def generator(self) -> Optional[Embeddings | BaseChatModel]:
         """生成模型"""
         return DashScopeEmbeddings(
-            model=rag_config['embed_model_name'],
-            dashscope_api_key=os.getenv('DASHSCOPE_API_KEY')
+            model=rag_config['text_embedding_model_name'],
+            dashscope_api_key=os.getenv("DASHSCOPE_API_KEY"),
         )
 
 

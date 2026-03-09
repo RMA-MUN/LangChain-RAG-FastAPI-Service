@@ -1,8 +1,4 @@
 import os
-import sys
-
-# 添加项目根目录到 Python 搜索路径
-sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
@@ -18,10 +14,12 @@ from app.utils.path_tool import get_abstract_path
 class VectorStoreService:
     """向量数据库服务"""
     def __init__(self):
+        # 使用绝对路径存储向量数据库，确保无论从哪个目录运行都能正确访问
+        persist_dir = get_abstract_path(chroma_config['persist_directory'])
         self.vectors_store = Chroma(
             collection_name=chroma_config['collection_name'],
             embedding_function=embed_model,
-            persist_directory=chroma_config['persist_directory'],
+            persist_directory=persist_dir,
         )
         self.spliter = RecursiveCharacterTextSplitter(
             chunk_size=chroma_config['chunk_size'],
@@ -71,7 +69,7 @@ class VectorStoreService:
                 return []
 
         allowed_file_path: tuple[str] = listdir_allowed_type(
-            chroma_config['data_folder'],
+            chroma_config['data_path'],
             tuple(chroma_config['allow_knowledge_file_types'])
         )
 
@@ -105,10 +103,12 @@ class VectorStoreService:
 
 
 if __name__ == '__main__':
+    # 测试向量数据库服务
     store = VectorStoreService()
     store.get_document()
 
     retriever = store.get_retriever()
-    results = retriever.invoke('迷路')
+    results = retriever.invoke('扫地')
+    print(f"检索结果数量: {len(results)}")
     for result in results:
         print(result)

@@ -1,3 +1,3 @@
-main_prompt: prompt/main_prompt.txt
-rag_summarize: prompt/rag_summarize.txt
-report_prompt: prompt/report_prompt.txt
+main_prompt: app/prompt/main_prompt.txt
+rag_summary_prompt: app/prompt/rag_summarize.txt
+report_prompt: app/prompt/report_prompt.txt
