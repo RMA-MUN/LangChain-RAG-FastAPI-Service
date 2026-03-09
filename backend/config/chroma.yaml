@@ -1,9 +1,0 @@
-collection_name: my_collection
-persist_directory: ./vector_db
-chunk_size: 1000
-chunk_overlap: 200
-separators: ["\n\n", "\n", " ", ""]
-k: 3
-data_folder: ./data
-allow_knowledge_file_types: [".txt", ".pdf"]
-md5_hex_store: ./md5_hex_store.txt

@@ -1,2 +1,0 @@
-system_prompt: "你是一个智能助手，帮助用户回答问题。"
-user_prompt: "请根据提供的信息回答问题：{question}"
