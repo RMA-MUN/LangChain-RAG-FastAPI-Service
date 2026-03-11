@@ -1,8 +1,9 @@
 from fastapi.routing import APIRouter
-from fastapi import HTTPException
+from fastapi import HTTPException, UploadFile, File
 from fastapi.responses import StreamingResponse
 import asyncio
 
+from app.rag.vector_store import VectorStoreService
 from app.router.models import QueryRequest, RAGRequest, SessionResponse, AgentResponse, RAGResponse
 from app.rag.rag_service import RagService
 from app.agent.agent import get_agent_response
@@ -108,3 +109,26 @@ async def get_all_sessions():
         return {"sessions": session_ids}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/vector/add")
+async def add_vector(file: UploadFile = File(...)):
+    """上传文件，将文件保存到向量数据库，仅支持TXT和PDF"""
+    try:
+        # 创建向量数据库服务实例
+        store = VectorStoreService()
+
+        # 检查上传的文件类型是否符合要求
+        allowed_types = ('.pdf', '.txt')
+        if not file.filename.endswith(allowed_types):
+            raise HTTPException(status_code=400, detail="仅支持上传PDF和TXT文件")
+        
+        # 处理文件并存储到向量数据库
+        await store.get_document(files=[file])
+        
+        return {"code": 200, "message": f"文件 {file.filename} 已成功上传并存储到向量数据库"}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
