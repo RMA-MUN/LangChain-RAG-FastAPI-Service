@@ -49,6 +49,7 @@
           <div class="menu-container">
             <button class="menu-btn" @click="toggleMenu">☰</button>
             <div class="menu" v-if="menuOpen">
+              <div class="menu-item" @click="createNewSession">增加新对话</div>
               <div class="menu-item" @click="showSessionList">切换历史会话</div>
               <div class="menu-item" @click="toggleSessionManager">管理历史会话</div>
             </div>
@@ -91,7 +92,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, watch } from 'vue'
-import { marked } from 'marked'
+import * as marked from 'marked'
+import DOMPurify from 'dompurify'
 import {
   agentQuery,
   agentQueryStream,
@@ -107,40 +109,58 @@ import SessionManager from '../components/SessionManager.vue'
 // 配置 marked 选项
 marked.setOptions({
   breaks: true, // 支持换行
-  gfm: true, // 支持 GitHub Flavored Markdown
-  headerIds: true, // 为标题添加 ID
-  mangle: false, // 不混淆邮件地址
+  gfm: true,
   silent: false, // 显示错误
-  highlight: (code, lang) => {
-    // 可以添加代码高亮逻辑
-    return code
-  },
-  // 支持脚注
-  footnotes: true,
 })
 
 // 缓存渲染结果，避免重复渲染相同内容
 const markdownCache = new Map<string, string>()
 
+// 格式化消息内容（支持Markdown）
+const formatMessage = (content: string) => {
+  if (!content) return ''
+  // 使用marked解析Markdown，并用DOMPurify清理HTML
+  try {
+    console.log('Original content:', content)
+    // 创建marked实例
+    const markedInstance = new marked.Marked()
+    // 渲染Markdown
+    const parsed = markedInstance.parse(content)
+    console.log('Parsed content:', parsed)
+    // 确保parsed是字符串
+    const htmlString = typeof parsed === 'string' ? parsed : ''
+    const sanitized = DOMPurify.sanitize(htmlString)
+    console.log('Sanitized content:', sanitized)
+    return sanitized
+  } catch (error) {
+    console.error('Markdown rendering error:', error)
+    return content
+  }
+}
 // 确保 marked 函数在模板中可用
 const renderMarkdown = (content: string) => {
+  // 直接渲染，不使用缓存，以便调试
+  return formatMessage(content)
+
   // 检查缓存
-  if (markdownCache.has(content)) {
+  /*if (markdownCache.has(content)) {
     return markdownCache.get(content)!
   }
 
   // 渲染并缓存结果
-  const rendered = marked(content)
+  const rendered = formatMessage(content)
   markdownCache.set(content, rendered)
 
   // 限制缓存大小，避免内存占用过高
   if (markdownCache.size > 50) {
     // 删除最早的缓存项
     const firstKey = markdownCache.keys().next().value
-    markdownCache.delete(firstKey)
+    if (firstKey) {
+      markdownCache.delete(firstKey)
+    }
   }
 
-  return rendered
+  return rendered*/
 }
 
 interface Message {
@@ -190,10 +210,16 @@ const sendMessage = () => {
   const botMessageIndex = messages.value.length
   messages.value.push({ type: 'bot', content: '' })
 
+  // 检查是否是第一次发送消息（只有"新对话"消息）
+  const isFirstMessage =
+    messages.value.length === 2 &&
+    messages.value[0]?.content === '新对话' &&
+    messages.value[1]?.type === 'user'
+
   // 调用流式API
   const closeStream = agentQueryStream(
     message,
-    currentSessionId.value || undefined,
+    isFirstMessage ? message : currentSessionId.value || undefined,
     (chunk, sessionId) => {
       // 更新当前会话ID
       currentSessionId.value = sessionId
@@ -343,6 +369,26 @@ const handleSessionDelete = (sessionId: string) => {
   showSessionManagerFlag.value = false
 }
 
+// 创建新对话
+const createNewSession = () => {
+  // 生成新的会话ID
+  const newSessionId = generateNewSessionId()
+  // 清空当前消息
+  messages.value = []
+  // 添加"新对话"消息
+  messages.value.push({
+    type: 'bot',
+    content: '新对话',
+  })
+  // 更新会话ID
+  currentSessionId.value = newSessionId
+  setCurrentSessionId(newSessionId)
+  // 关闭菜单
+  menuOpen.value = false
+  // 滚动到底部
+  scrollToBottom()
+}
+
 // 页面加载时添加欢迎消息
 onMounted(() => {
   // 生成新的会话ID
@@ -350,13 +396,13 @@ onMounted(() => {
   currentSessionId.value = newSessionId
   setCurrentSessionId(newSessionId)
 
-  if (messages.value.length === 0) {
-    messages.value.push({
-      type: 'bot',
-      content: '您好！我是智能客服助手，有什么可以帮到您的吗？',
-    })
-    scrollToBottom()
-  }
+  // 清空消息并添加"新对话"消息
+  messages.value = []
+  messages.value.push({
+    type: 'bot',
+    content: '您好，有什么可以帮您的吗？',
+  })
+  scrollToBottom()
 })
 </script>
 

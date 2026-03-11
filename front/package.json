@@ -12,7 +12,9 @@
     "format": "prettier --write --experimental-cli src/"
   },
   "dependencies": {
+    "@types/dompurify": "^3.2.0",
     "babel-runtime": "^6.26.0",
+    "dompurify": "^3.3.2",
     "marked": "^17.0.4",
     "pinia": "^3.0.4",
     "vue": "^3.5.29",
