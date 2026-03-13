@@ -4,7 +4,7 @@ from langchain_core.prompts import PromptTemplate
 from app.rag.vector_store import VectorStoreService
 from app.utils.factory import chat_model
 from app.utils.prompt_loader import load_prompt
-from app.utils.logger_handler import logger
+from app.core.logger_handler import logger
 
 
 class RagService:

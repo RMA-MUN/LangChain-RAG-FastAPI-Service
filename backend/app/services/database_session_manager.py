@@ -1,10 +1,9 @@
 import asyncio
 from typing import Dict, List, Tuple, Optional
 
-from sqlalchemy import select
-from app.config.db_config import AsyncSessionLocal
-from app.model.chat_history import ChatSession, ChatMessage
-from app.utils.logger_handler import logger
+from app.db.db_config import AsyncSessionLocal
+from app.models.chat_history import ChatSession, ChatMessage
+from app.core.logger_handler import logger
 
 
 class DatabaseSessionManager:

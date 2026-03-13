@@ -1,7 +1,7 @@
 import os, hashlib, aiofiles, asyncio
 from langchain_core.documents import Document
 
-from app.utils.logger_handler import logger
+from app.core.logger_handler import logger
 from app.utils.path_tool import get_abstract_path
 from langchain_community.document_loaders import PyPDFLoader, TextLoader
 

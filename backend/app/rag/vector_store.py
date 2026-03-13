@@ -16,7 +16,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from app.utils.config import chroma_config
 from app.utils.factory import embed_model
 from app.utils.file_handler import pdf_loader, txt_loader, listdir_allowed_type, get_file_md5_hex
-from app.utils.logger_handler import logger
+from app.core.logger_handler import logger
 from app.utils.path_tool import get_abstract_path
 
 class VectorStoreService:
