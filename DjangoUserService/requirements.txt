@@ -1,0 +1,5 @@
+Django~=6.0.3
+djangorestframework~=3.16.1
+drf-spectacular~=0.29.0
+dotenv~=0.9.9
+python-dotenv~=1.2.2

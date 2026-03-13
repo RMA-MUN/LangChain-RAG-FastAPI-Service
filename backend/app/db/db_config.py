@@ -2,7 +2,7 @@ import os
 from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.model.chat_history import Base
+from app.models.chat_history import Base
 
 # 加载环境变量
 load_dotenv()

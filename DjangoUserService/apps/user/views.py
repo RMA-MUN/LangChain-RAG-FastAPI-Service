@@ -1,14 +1,19 @@
+import logging
+
+from django.contrib.auth import get_user_model
 from rest_framework import generics, status
-from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenObtainPairView
-from django.contrib.auth import get_user_model
 
 from .serializers import (
     UserRegistrationSerializer,
     UserInfoSerializer,
     MyTokenObtainPairSerializer
 )
+from ..utils.response import success_response
+
+# 获取当前模块的日志记录器
+logger = logging.getLogger(__name__)
 
 User = get_user_model()
 
@@ -23,11 +28,17 @@ class UserRegistrationView(generics.CreateAPIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
 
+        # 记录注册日志
+        logger.info(f"User {user.user_name} registered successfully")
+
         # 注册成功后，自动返回用户信息
-        return Response({
-            "message": "注册成功",
-            "user": UserInfoSerializer(user, context=self.get_serializer_context()).data
-        }, status=status.HTTP_201_CREATED)
+        return success_response(
+            message="注册成功",
+            data={
+                "user": UserInfoSerializer(user, context=self.get_serializer_context()).data
+            },
+            status=status.HTTP_201_CREATED
+        )
 
 class MyTokenObtainPairView(TokenObtainPairView):
     """
@@ -36,6 +47,7 @@ class MyTokenObtainPairView(TokenObtainPairView):
     refresh: 刷新 Token，续期access
     access: 访问 Token，用于调用需要认证的接口
     """
+    logger.info("TokenObtainPairView requested")
     serializer_class = MyTokenObtainPairSerializer
 
 class UserProfileView(generics.RetrieveAPIView):
@@ -45,6 +57,7 @@ class UserProfileView(generics.RetrieveAPIView):
     """
     permission_classes = (IsAuthenticated,)
     serializer_class = UserInfoSerializer
+    logger.info("UserProfileView requested")
 
     def get_object(self):
         return self.request.user

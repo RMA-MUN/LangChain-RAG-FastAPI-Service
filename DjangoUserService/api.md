@@ -1,172 +1,205 @@
-# Django User Service API 文档
-
-## 项目简介
-
-基于 Django 和 Django REST Framework 开发的用户管理服务，提供用户注册、登录、获取用户信息等功能，并使用 JWT 进行身份认证。
+# UserService API 文档
 
 ## 接口列表
 
-| 接口路径 | 方法 | 功能描述 |
-|---------|------|--------|
-| `/api/auth/register/` | POST | 用户注册 |
-| `/api/auth/login/` | POST | 用户登录（获取 Access Token） |
-| `/api/auth/token/refresh/` | POST | 刷新 Token（用 Refresh Token 换新的 Access Token） |
-| `/api/auth/profile/` | GET | 获取当前登录用户信息 |
+### 1. 注册接口
 
-## 详细接口说明
+**URL**: `/api/auth/register/`
+**方法**: `POST`
+**描述**: 用户注册接口，创建新用户
 
-### 1. 用户注册
-
-**URL:** `/api/auth/register/`  
-**方法:** POST  
-**描述:** 创建新用户
-
-**请求参数:**
+#### 请求参数
 
 | 参数名 | 类型 | 必填 | 描述 |
 |--------|------|------|------|
-| `user_name` | string | 是 | 用户名 |
-| `email` | string | 是 | 邮箱地址 |
-| `password` | string | 是 | 密码（至少6位） |
-| `password2` | string | 是 | 确认密码 |
-| `phone` | string | 否 | 手机号（11位） |
+| user_name | string | 是 | 用户名 |
+| email | string | 是 | 邮箱地址 |
+| password | string | 是 | 密码，至少6位 |
+| password2 | string | 是 | 确认密码，必须与password一致 |
+| phone | string | 否 | 手机号，11位 |
 
-**请求示例:**
+#### 响应参数
+
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| code | integer | 状态码，成功为200 |
+| message | string | 响应消息 |
+| data | object | 响应数据 |
+| data.user | object | 用户信息 |
+| data.user.user_id | string | 用户唯一ID（UUID） |
+| data.user.user_name | string | 用户名 |
+| data.user.email | string | 邮箱地址 |
+| data.user.avatar | string | 头像URL，可能为null |
+| data.user.date_joined | string | 注册时间（ISO格式） |
+
+#### 请求示例
+
 ```json
 {
-  "user_name": "张三",
-  "email": "zhangsan@example.com",
-  "password": "123456",
-  "password2": "123456",
+  "user_name": "testuser",
+  "email": "test@example.com",
+  "password": "password123",
+  "password2": "password123",
   "phone": "13800138000"
 }
 ```
 
-**响应示例:**
+#### 响应示例
+
 ```json
 {
+  "code": 200,
   "message": "注册成功",
-  "user": {
-    "user_id": "550e8400-e29b-41d4-a716-446655440000",
-    "user_name": "张三",
-    "email": "zhangsan@example.com",
-    "avatar": null,
-    "date_joined": "2026-03-12T10:00:00Z"
+  "data": {
+    "user": {
+      "user_id": "550e8400-e29b-41d4-a716-446655440000",
+      "user_name": "testuser",
+      "email": "test@example.com",
+      "avatar": null,
+      "date_joined": "2026-03-13T14:42:13Z"
+    }
   }
 }
 ```
 
-### 2. 用户登录
+### 2. 登录接口
 
-**URL:** `/api/auth/login/`  
-**方法:** POST  
-**描述:** 用户登录并获取 JWT Token
+**URL**: `/api/auth/login/`
+**方法**: `POST`
+**描述**: 用户登录接口，获取访问令牌
 
-**请求参数:**
+#### 请求参数
 
 | 参数名 | 类型 | 必填 | 描述 |
 |--------|------|------|------|
-| `username` | string | 是 | 用户名或邮箱 |
-| `password` | string | 是 | 密码 |
+| email | string | 是 | 邮箱地址 |
+| password | string | 是 | 密码 |
 
-**请求示例:**
+#### 响应参数
+
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| access | string | 访问令牌，用于调用需要认证的接口 |
+| refresh | string | 刷新令牌，用于获取新的访问令牌 |
+
+#### 请求示例
+
 ```json
 {
-  "username": "zhangsan@example.com",
-  "password": "123456"
+  "email": "test@example.com",
+  "password": "password123"
 }
 ```
 
-**响应示例:**
+#### 响应示例
+
 ```json
 {
   "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "user_name": "张三",
-  "user_id": "550e8400-e29b-41d4-a716-446655440000"
+  "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-### 3. 刷新 Token
+### 3. 刷新令牌接口
 
-**URL:** `/api/auth/token/refresh/`  
-**方法:** POST  
-**描述:** 使用 Refresh Token 获取新的 Access Token
+**URL**: `/api/auth/token/refresh/`
+**方法**: `POST`
+**描述**: 使用刷新令牌获取新的访问令牌
 
-**请求参数:**
+#### 请求参数
 
 | 参数名 | 类型 | 必填 | 描述 |
 |--------|------|------|------|
-| `refresh` | string | 是 | 从登录接口获取的 Refresh Token |
+| refresh | string | 是 | 刷新令牌 |
 
-**请求示例:**
+#### 响应参数
+
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| access | string | 新的访问令牌 |
+
+#### 请求示例
+
 ```json
 {
   "refresh": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-**响应示例:**
+#### 响应示例
+
 ```json
 {
   "access": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-### 4. 获取当前登录用户信息
+### 4. 获取用户信息接口
 
-**URL:** `/api/auth/profile/`  
-**方法:** GET  
-**描述:** 获取当前登录用户的详细信息
+**URL**: `/api/auth/profile/`
+**方法**: `GET`
+**描述**: 获取当前登录用户的详细信息
+**认证**: 需要在请求头中携带 `Authorization: Bearer <access_token>`
 
-**请求头:**
+#### 请求参数
 
-| 头部名称 | 值 | 描述 |
-|---------|-----|------|
-| `Authorization` | `Bearer <access_token>` | 使用登录接口获取的 Access Token |
+无
 
-**响应示例:**
+#### 响应参数
+
+| 参数名 | 类型 | 描述 |
+|--------|------|------|
+| user_id | string | 用户唯一ID（UUID） |
+| user_name | string | 用户名 |
+| email | string | 邮箱地址 |
+| avatar | string | 头像URL，可能为null |
+| date_joined | string | 注册时间（ISO格式） |
+
+#### 请求示例
+
+```
+GET /api/auth/profile/
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### 响应示例
+
 ```json
 {
   "user_id": "550e8400-e29b-41d4-a716-446655440000",
-  "user_name": "张三",
-  "email": "zhangsan@example.com",
+  "user_name": "testuser",
+  "email": "test@example.com",
   "avatar": null,
-  "date_joined": "2026-03-12T10:00:00Z"
+  "date_joined": "2026-03-13T14:42:13Z"
 }
 ```
 
 ## 认证方式
 
-本服务使用 JWT（JSON Web Token）进行身份认证。用户登录后获取 Access Token 和 Refresh Token：
+所有需要认证的接口（如获取用户信息）都需要在请求头中携带 JWT 访问令牌：
 
-- **Access Token**：用于访问需要认证的接口，有效期为 2 小时
-- **Refresh Token**：用于在 Access Token 过期后获取新的 Access Token，有效期为 7 天
+```
+Authorization: Bearer <access_token>
+```
 
-在访问需要认证的接口时，需要在请求头中添加 `Authorization: Bearer <access_token>`。
+其中 `<access_token>` 是通过登录接口获取的访问令牌。
 
-## 错误处理
+## 错误响应格式
 
-| 错误码 | 描述 |
-|--------|------|
-| 400 | 请求参数错误 |
-| 401 | 未授权或 Token 无效 |
-| 403 | 禁止访问 |
-| 404 | 资源不存在 |
-| 500 | 服务器内部错误 |
+当请求失败时，返回的错误响应格式如下：
 
-## 技术栈
+```json
+{
+  "code": 400,
+  "message": "错误信息",
+  "data": null
+}
+```
 
-- Django 6.0.3
-- Django REST Framework
-- djangorestframework-simplejwt
-- MySQL
+## 注意事项
 
-## 文档访问
-
-项目还提供了自动生成的 API 文档：
-
-- Swagger UI: `http://127.0.0.1:8000/api/docs/swagger/`
-- Redoc: `http://127.0.0.1:8000/api/docs/redoc/`
-
-这些文档提供了交互式的 API 测试界面，可以方便地测试各个接口。
+1. 密码长度至少为6位
+2. 邮箱必须是有效的邮箱格式
+3. 手机号必须是11位数字
+4. 所有需要认证的接口必须携带有效的访问令牌
+5. 访问令牌过期后，需要使用刷新令牌获取新的访问令牌
