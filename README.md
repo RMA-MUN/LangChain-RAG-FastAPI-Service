@@ -53,6 +53,12 @@
 └── README.md         # 项目说明
 ```
 
+## api文档
+
+***<u>[智能对话API文档](.\backend\api.md)</u>***
+
+**<u>*[用户服务API文档](.\DjangoUserService\api.md)*</u>**
+
 ## 快速开始 🚀
 
 ### 1. 环境准备
