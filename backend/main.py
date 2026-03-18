@@ -7,6 +7,7 @@ from app.db.db_config import init_db
 from app.db.redis_config import connect_redis, close_redis
 from app.router.chat import chat_router
 from app.router.health import health_router
+from app.router.user import user_router
 
 from app.services.database_session_manager import init_database_session_manager
 
@@ -25,6 +26,9 @@ async def add_process_time_header(request: Request, call_next):
 # 集成API路由
 app.include_router(chat_router)
 app.include_router(health_router)
+app.include_router(user_router)
+
+
 
 
 app.add_middleware(

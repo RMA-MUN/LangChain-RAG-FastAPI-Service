@@ -32,6 +32,7 @@ async def close_redis():
 async def check_redis_connection() -> bool:
     """检查Redis连接"""
     try:
+        redis_client = await connect_redis()
         await redis_client.ping()
         return True
     except Exception as e:
@@ -42,6 +43,7 @@ async def check_redis_connection() -> bool:
 async def get_redis_cache_str(key: str) -> str | None:
     """根据key获取redis缓存 (字符串类型)"""
     try:
+        redis_client = await connect_redis()
         return await redis_client.get(key)
     except Exception as e:
         print(f"获取redis缓存失败: {e}")
@@ -50,6 +52,7 @@ async def get_redis_cache_str(key: str) -> str | None:
 async def get_redis_cache_json(key: str) -> dict | None:
     """根据key获取redis缓存 (字典或列表类型)"""
     try:
+        redis_client = await connect_redis()
         data = await redis_client.get(key)
         if data:
             return json.loads(data)
@@ -68,15 +71,16 @@ async def set_redis_cache(key: str, value: Any, expire: int = 3600) -> bool:
     :return: None
     """
     try:
+        redis_client = await connect_redis()
         if isinstance(value, str):
             # 如果是字符串，直接设置缓存
-            await redis_client.set(key, value, expire)
+            await redis_client.set(key, value, ex=expire)
         elif isinstance(value, (dict, list)):
             # 如果是字典或列表，转为json字符串在设置缓存
-            await redis_client.set(key, json.dumps(value, ensure_ascii=False), expire)
+            await redis_client.set(key, json.dumps(value, ensure_ascii=False), ex=expire)
         else:
             # 其他类型，尝试转换为字符串
-            await redis_client.set(key, str(value), expire)
+            await redis_client.set(key, str(value), ex=expire)
         return True
 
     except Exception as e:

@@ -69,15 +69,22 @@ async def get_user_sessions(user_id: str, current_user_id: str = Depends(get_cur
 
 
 @chat_router.post("/vector/add/single")
-async def add_vector_single(file: UploadFile = File(...), router_service: ChatService = Depends(get_router_service)):
+async def add_vector_single(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id), router_service: ChatService = Depends(get_router_service)):
     """上传文件，将文件保存到向量数据库，仅支持TXT和PDF"""
-    filename = await router_service.handle_add_vector_single(file)
+    filename = await router_service.handle_add_vector_single(file, user_id)
     return success_response(message=f"文件 {filename} 已成功上传并存储到向量数据库")
 
 
 
 @chat_router.post("/vector/add/multiple")
-async def add_vector_multiple(files: List[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"), router_service: ChatService = Depends(get_router_service)):
+async def add_vector_multiple(files: List[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"), user_id: str = Depends(get_current_user_id), router_service: ChatService = Depends(get_router_service)):
     """上传多个文件，将文件保存到向量数据库，仅支持TXT和PDF"""
-    filenames = await router_service.handle_add_vector_multiple(files)
+    filenames = await router_service.handle_add_vector_multiple(files, user_id)
     return success_response(message=f"文件 {filenames} 已成功上传并存储到向量数据库")
+
+
+@chat_router.delete("/vector/clean")
+async def clean_user_vectors(user_id: str = Depends(get_current_user_id), router_service: ChatService = Depends(get_router_service)):
+    """删除用户上传的所有向量"""
+    await router_service.clean_user_upload(user_id)
+    return success_response(message="已成功删除用户上传的所有向量")

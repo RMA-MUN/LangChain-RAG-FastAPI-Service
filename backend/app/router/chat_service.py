@@ -60,7 +60,7 @@ class ChatService:
         session_ids = await sm.session_manager.get_user_sessions(user_id)
         return session_ids
 
-    async def handle_add_vector_single(self, file: UploadFile) -> str:
+    async def handle_add_vector_single(self, file: UploadFile, user_id: str) -> str:
         """处理添加单个向量逻辑"""
         # 创建向量数据库服务实例
         store = VectorStoreService()
@@ -76,11 +76,11 @@ class ChatService:
             raise HTTPException(status_code=400, detail="仅支持上传PDF和TXT文件")
 
         # 处理文件并存储到向量数据库
-        await store.get_document(files=[file])
+        await store.get_document(files=[file], user_id=user_id)
 
         return file.filename
 
-    async def handle_add_vector_multiple(self, files: List[UploadFile]) -> List[str]:
+    async def handle_add_vector_multiple(self, files: List[UploadFile], user_id: str) -> List[str]:
         """处理添加多个向量逻辑"""
         store = VectorStoreService()
         max_file_folder_size = 200 * 1024 * 1024  # 最大文件大小200MB
@@ -101,9 +101,16 @@ class ChatService:
         if total_size > max_file_folder_size:
             raise HTTPException(status_code=400, detail="文件总大小不能超过200MB")
 
-        await store.get_document(files=files)
+        await store.get_document(files=files, user_id=user_id)
 
         return [file.filename for file in files]
+
+    async def clean_user_upload(self, user_id: str) -> None:
+        """处理删除用户上传的所有向量逻辑"""
+        # 创建向量数据库服务实例
+        store = VectorStoreService()
+        # 删除用户的所有文档
+        await store.delete_user_documents(user_id)
 
 
 def get_router_service() -> ChatService:

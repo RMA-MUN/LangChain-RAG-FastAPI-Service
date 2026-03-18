@@ -65,6 +65,22 @@ class VectorStoreService:
         async with aiofiles.open(get_abstract_path(chroma_config['md5_hex_store']), 'a', encoding="utf-8") as f:
             await f.write(md5_hex + '\n')
 
+    async def delete_user_documents(self, user_id: str):
+        """
+        删除指定用户的所有文档
+        :param user_id: 用户ID
+        """
+        try:
+            # 使用同步操作删除文档
+            await asyncio.to_thread(
+                self.vectors_store.delete, 
+                where={"user_id": user_id}
+            )
+            logger.info(f"【向量数据库】已删除用户 {user_id} 的所有文档")
+        except Exception as e:
+            logger.error(f"【向量数据库】删除用户 {user_id} 的文档时出错: {e}")
+            raise
+
     async def get_file_document(self, read_path: str) -> list[Document]:
         """异步加载文件"""
         if read_path.endswith('.txt'):
@@ -74,10 +90,11 @@ class VectorStoreService:
         else:
             return []
 
-    async def get_document(self, files: list = None):
+    async def get_document(self, files: list = None, user_id: str = None):
         """
         处理文档并将其转为向量存入向量数据库
         :param files: 上传的文件列表，如果为None则从数据文件夹读取
+        :param user_id: 用户ID，用于标记文档的所有者
         """
         # 确定要处理的文件列表
         file_paths = []
@@ -139,7 +156,12 @@ class VectorStoreService:
                             pass
                     continue
 
-                # 5. 异步写入向量库
+                # 5. 添加用户ID作为元数据
+                if user_id:
+                    for doc in document:
+                        doc.metadata['user_id'] = user_id
+
+                # 6. 异步写入向量库
                 await asyncio.to_thread(self.vectors_store.add_documents, document)
 
                 # 6. 保存MD5
