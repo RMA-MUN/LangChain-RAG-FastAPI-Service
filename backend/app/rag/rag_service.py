@@ -10,11 +10,18 @@ from app.core.logger_handler import logger
 class RagService:
     def __init__(self):
         self.vector_store = VectorStoreService()
-        self.retriever = self.vector_store.get_retriever()
+        self.retriever = None  # 延迟初始化
         self.prompt_text = load_prompt(prompt_type="rag_summary_prompt")
         self.prompt_template = PromptTemplate.from_template(self.prompt_text)
         self.chat_model = chat_model
         self.chain = self._init_chain()
+
+    async def initialize_retriever(self):
+        """
+        初始化检索器
+        """
+        if self.retriever is None:
+            self.retriever = await self.vector_store.get_retriever()
 
 
     def _init_chain(self):
@@ -29,6 +36,9 @@ class RagService:
     async def retrieve_document(self, query: str) -> list:
         """从向量数据库里检索文档"""
         try:
+            # 确保检索器已初始化
+            if self.retriever is None:
+                await self.initialize_retriever()
             # 使用异步方式调用retriever
             documents = await self.retriever.ainvoke(query)
             logger.info(f"【RAG】检索到 {len(documents)} 个相关文档")
@@ -60,5 +70,12 @@ class RagService:
             return "抱歉，处理您的请求时出现了错误。"
 
 if __name__ == '__main__':
-    service = RagService()
-    print(service.rag_summary("小户型适合什么扫地机器人"))
+    import asyncio
+    
+    async def main():
+        service = RagService()
+        await service.initialize_retriever()
+        result = await service.rag_summary("小户型适合什么扫地机器人")
+        print(result)
+    
+    asyncio.run(main())

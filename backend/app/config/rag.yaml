@@ -1,2 +1,2 @@
-chat_model_name: qwen3-max
-text_embedding_model_name: text-embedding-v4
+chat_model_name: qwen3.5-27b
+text_embedding_model_name: text-embedding-v3

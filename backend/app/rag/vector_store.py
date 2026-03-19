@@ -3,6 +3,8 @@ import sys
 import os
 import tempfile
 
+from langchain_classic.retrievers import EnsembleRetriever
+
 # 将根目录添加到系统路径
 sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -12,6 +14,7 @@ from aiofiles import os as aio_os
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain_community.retrievers import BM25Retriever
 
 from app.utils.config import chroma_config
 from app.utils.factory import embed_model
@@ -35,12 +38,56 @@ class VectorStoreService:
             separators=chroma_config['separators'],
         )
 
-    def get_retriever(self):
-        """获取检索器"""
-        return self.vectors_store.as_retriever(
+    async def get_bm25_retriever(self):
+        """
+        获取BM25检索器
+        :return: BM25Retriever实例
+        """
+        # 获取所有文档
+        all_docs = await self._get_all_documents()
+        # 创建BM25检索器
+        bm25_retriever = BM25Retriever.from_documents(
+            documents=all_docs,
+            k=chroma_config['k']
+        )
+        return bm25_retriever
+
+    async def _get_all_documents(self) -> list[Document]:
+        """
+        获取向量库中的所有文档
+        :return: 文档列表
+        """
+        # 使用同步操作获取所有文档
+        all_docs = await asyncio.to_thread(
+            self.vectors_store.get,
+            include=['documents', 'metadatas']
+        )
+        # 构建Document对象列表
+        documents = []
+        for i, doc in enumerate(all_docs['documents']):
+            metadata = all_docs['metadatas'][i] if i < len(all_docs['metadatas']) else {}
+            documents.append(Document(page_content=doc, metadata=metadata))
+        return documents
+
+    async def get_retriever(self):
+        """
+        获取混合检索器（BM25 + 向量检索）
+        :return: EnsembleRetriever实例
+        """
+        # 创建向量检索器
+        vector_retriever = self.vectors_store.as_retriever(
             search_type='similarity',
             search_kwargs={'k': chroma_config['k']},
         )
+        # 创建BM25检索器
+        bm25_retriever = await self.get_bm25_retriever()
+        
+        # 创建混合检索器
+        ensemble_retriever = EnsembleRetriever(
+            retrievers=[vector_retriever, bm25_retriever],
+            weights=[0.5, 0.5]  # 权重可以根据实际情况调整
+        )
+        return ensemble_retriever
 
     async def check_md5_hex(self, md5_for_check: str) -> bool:
         """异步检查md5"""
@@ -191,9 +238,10 @@ if __name__ == '__main__':
         store = VectorStoreService()
         await store.get_document()
 
-        retriever = store.get_retriever()
-        # 检索通过 to_thread 包裹
-        results = await asyncio.to_thread(retriever.invoke, '扫地')
+        # 等待get_retriever方法完成
+        retriever = await store.get_retriever()
+        # 直接使用ainvoke方法，因为EnsembleRetriever的invoke可能返回协程
+        results = await retriever.ainvoke('扫地')
         print(f"检索结果数量: {len(results)}")
         for result in results:
             print(result)
