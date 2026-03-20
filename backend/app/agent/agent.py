@@ -4,7 +4,7 @@ import asyncio
 from typing import List, Optional, AsyncGenerator
 
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
-from langchain_community.chat_models import ChatTongyi
+from langchain_ollama import ChatOllama
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
@@ -57,11 +57,12 @@ class AgentFactory:
         """获取默认系统提示词"""
         return "你是一个智能助手，能够根据用户的问题选择合适的工具来回答。请根据用户的问题，先判断是否需要调用工具，如果需要，再根据工具的描述和参数要求，生成正确的调用格式；如果不需要，就直接回答用户的问题。"
 
-    def _create_chat_model(self, custom_model: Optional[str] = None) -> ChatTongyi:
+    def _create_chat_model(self, custom_model: Optional[str] = None) -> ChatOllama:
         """内部方法：创建聊天模型实例"""
-        return ChatTongyi(
+        return ChatOllama(
             model=custom_model or self.model,
-            api_key=self.api_key,
+            base_url="http://localhost:11434",
+            temperature=0.7,
             streaming=True  # 开启流式输出
         )
 
@@ -114,7 +115,7 @@ class AgentFactory:
 
 
 # 初始化全局工厂配置
-agent_factory = AgentFactory()
+agent_factory = AgentFactory(model="qwen2.5:7b")
 
 
 async def get_agent_response(

@@ -43,14 +43,29 @@ class VectorStoreService:
         获取BM25检索器
         :return: BM25Retriever实例
         """
-        # 获取所有文档
-        all_docs = await self._get_all_documents()
-        # 创建BM25检索器
-        bm25_retriever = BM25Retriever.from_documents(
-            documents=all_docs,
-            k=chroma_config['k']
+        # 从文件直接加载文档，不依赖向量数据库
+        allowed_file_path: tuple[str] = await listdir_allowed_type(
+            chroma_config['data_path'],
+            tuple(chroma_config['allow_knowledge_file_types'])
         )
-        return bm25_retriever
+        file_paths = list(allowed_file_path)
+        
+        all_docs = []
+        for file_path in file_paths:
+            documents = await self.get_file_document(file_path)
+            if documents:
+                split_docs = self.spliter.split_documents(documents)
+                all_docs.extend(split_docs)
+        
+        # 创建BM25检索器
+        if all_docs:
+            bm25_retriever = BM25Retriever.from_documents(
+                documents=all_docs,
+                k=chroma_config['k']
+            )
+            return bm25_retriever
+        else:
+            return None
 
     async def _get_all_documents(self) -> list[Document]:
         """
@@ -72,7 +87,7 @@ class VectorStoreService:
     async def get_retriever(self):
         """
         获取混合检索器（BM25 + 向量检索）
-        :return: EnsembleRetriever实例
+        :return: EnsembleRetriever实例或单独的向量检索器
         """
         # 创建向量检索器
         vector_retriever = self.vectors_store.as_retriever(
@@ -82,12 +97,17 @@ class VectorStoreService:
         # 创建BM25检索器
         bm25_retriever = await self.get_bm25_retriever()
         
-        # 创建混合检索器
-        ensemble_retriever = EnsembleRetriever(
-            retrievers=[vector_retriever, bm25_retriever],
-            weights=[0.5, 0.5]  # 权重可以根据实际情况调整
-        )
-        return ensemble_retriever
+        # 根据是否有BM25检索器决定返回哪种检索器
+        if bm25_retriever:
+            # 创建混合检索器
+            ensemble_retriever = EnsembleRetriever(
+                retrievers=[vector_retriever, bm25_retriever],
+                weights=[0.5, 0.5]  # 权重可以根据实际情况调整
+            )
+            return ensemble_retriever
+        else:
+            # 如果没有BM25检索器，只返回向量检索器
+            return vector_retriever
 
     async def check_md5_hex(self, md5_for_check: str) -> bool:
         """异步检查md5"""
