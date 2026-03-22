@@ -47,10 +47,17 @@ class RagService:
             logger.error(f"【RAG】检索文档失败: {e}")
             return []
 
-    async def rag_summary(self, query: str) -> str:
-        """RAG 摘要"""
+    async def get_documents_and_summary(self, query: str) -> dict:
+        """
+        获取文档列表和摘要
+        :param query: 查询语句
+        :return: 包含文档列表和摘要的字典
+        """
         try:
             documents = await self.retrieve_document(query)
+            
+            # 提取文档内容列表
+            document_contents = [doc.page_content for doc in documents]
             
             # 构建上下文
             context = ""
@@ -59,15 +66,29 @@ class RagService:
             
             # 如果没有检索到文档
             if not context:
-                return "抱歉，我没有找到相关的信息。"
+                return {
+                    "documents": [],
+                    "summary": "抱歉，我没有找到相关的信息。"
+                }
             
             # 生成摘要
             response = await self.chain.ainvoke({"input": query, "context": context})
             logger.info(f"【RAG】生成摘要成功")
-            return response
+            return {
+                "documents": document_contents,
+                "summary": response
+            }
         except Exception as e:
             logger.error(f"【RAG】生成摘要失败: {e}")
-            return "抱歉，处理您的请求时出现了错误。"
+            return {
+                "documents": [],
+                "summary": "抱歉，处理您的请求时出现了错误。"
+            }
+
+    async def rag_summary(self, query: str) -> str:
+        """RAG 摘要"""
+        result = await self.get_documents_and_summary(query)
+        return result.get("summary", "抱歉，处理您的请求时出现了错误。")
 
 if __name__ == '__main__':
     import asyncio
