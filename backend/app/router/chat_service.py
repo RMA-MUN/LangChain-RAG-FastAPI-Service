@@ -1,12 +1,16 @@
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Any
 import uuid
 
 from fastapi import HTTPException, UploadFile
+from langchain_chroma.vectorstores import cosine_similarity
+from langchain_ollama import OllamaEmbeddings
+import numpy as np
 
 from app.rag.vector_store import VectorStoreService
 from app.rag.rag_service import RagService
 from app.agent.agent import get_agent_response
 from app.services import session_manager as sm
+from app.utils.config import rag_config
 
 
 class ChatService:
@@ -111,6 +115,47 @@ class ChatService:
         store = VectorStoreService()
         # 删除用户的所有文档
         await store.delete_user_documents(user_id)
+
+    async def handle_reorder(self, query: str, documents: List[str]) -> List[Dict[str, Any]]:
+        """
+        使用Ollama嵌入模型对文档进行中文重排序
+        :param query: 查询语句
+        :param documents: 文档列表
+        :return: 排序后的文档列表，包含文档内容和相似度
+        """
+        try:
+            # 初始化Ollama嵌入模型，使用配置文件中定义的模型
+            embeddings = OllamaEmbeddings(
+                model=rag_config['text_embedding_model_name'],
+                base_url="http://localhost:11434"
+            )
+            
+            # 获取查询的嵌入向量
+            query_embedding = await embeddings.aembed_query(query)
+            
+            # 获取所有文档的嵌入向量
+            doc_embeddings = await embeddings.aembed_documents(documents)
+            
+            # 计算查询与每个文档的余弦相似度
+            similarities = cosine_similarity(
+                [query_embedding],
+                doc_embeddings
+            )[0]
+            
+            # 按相似度排序
+            sorted_indices = np.argsort(similarities)[::-1]
+            
+            # 构建排序后的结果
+            sorted_docs = []
+            for idx in sorted_indices:
+                sorted_docs.append({
+                    "document": documents[idx],
+                    "similarity": float(similarities[idx])
+                })
+            
+            return sorted_docs
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"重排序过程中出错: {str(e)}")
 
 
 def get_router_service() -> ChatService:

@@ -8,7 +8,7 @@ from fastapi.responses import StreamingResponse
 from app.agent.agent import get_agent_stream_response
 from app.router.chat_service import ChatService, get_router_service
 
-from app.schemas.models import QueryRequest, RAGResponse, RAGRequest, SessionResponse
+from app.schemas.models import QueryRequest, RAGResponse, RAGRequest, SessionResponse, ReorderResponse, ReorderRequest
 from app.utils.auth_utils import get_current_user_id
 from app.core.success_response import success_response
 
@@ -88,3 +88,10 @@ async def clean_user_vectors(user_id: str = Depends(get_current_user_id), router
     """删除用户上传的所有向量"""
     await router_service.clean_user_upload(user_id)
     return success_response(message="已成功删除用户上传的所有向量")
+
+
+@chat_router.post("/reorder", response_model=ReorderResponse)
+async def reorder_documents(request: ReorderRequest, router_service: ChatService = Depends(get_router_service)):
+    """使用Ollama本地的嵌入模型对文档进行中文重排序"""
+    sorted_docs = await router_service.handle_reorder(request.query, request.documents)
+    return success_response(data=ReorderResponse(documents=sorted_docs))
