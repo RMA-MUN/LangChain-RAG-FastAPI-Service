@@ -9,9 +9,12 @@ from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
 
-from app.agent.agent_tools import rag_summary_tools, get_weather_tools, what_time_is_now, get_user_info_tools
+from app.agent.agent_middleware import get_middleware
+from app.agent.agent_tools import rag_summary_tools, get_weather_tools, what_time_is_now, get_user_info_tools, \
+    reorder_documents_tools
 from app.core.logger_handler import logger
 from app.services import session_manager as sm
+from app.utils.prompt_loader import load_prompt
 
 
 class AgentFactory:
@@ -25,9 +28,10 @@ class AgentFactory:
 
     def __init__(
             self,
-            model: str = "qwen3-max",
+            model: str = "qwen2.5:7b",
             api_key: Optional[str] = None,
             default_tools: Optional[List[BaseTool]] = None,
+            default_middleware: Optional[List] = None,
             default_system_prompt: Optional[str] = None,
     ):
         """
@@ -40,6 +44,7 @@ class AgentFactory:
         self.model = model
         self.api_key = api_key or os.getenv("CHAT_API_KEY")
         self.default_tools = default_tools or self._get_default_tools()
+        self.default_middleware = default_middleware or self._get_default_middleware()
         self.default_system_prompt = default_system_prompt or self._get_default_system_prompt()
 
     @staticmethod
@@ -47,15 +52,20 @@ class AgentFactory:
         """获取默认工具列表"""
         return [
             rag_summary_tools,
+            reorder_documents_tools,
             get_weather_tools,
             what_time_is_now,
             get_user_info_tools,
         ]
 
+    def _get_default_middleware(self) -> List:
+        """获取默认中间件列表"""
+        return get_middleware()
+
     @staticmethod
     def _get_default_system_prompt() -> str:
         """获取默认系统提示词"""
-        return "你是一个智能助手，能够根据用户的问题选择合适的工具来回答。请根据用户的问题，先判断是否需要调用工具，如果需要，再根据工具的描述和参数要求，生成正确的调用格式；如果不需要，就直接回答用户的问题。"
+        return load_prompt('main_prompt')
 
     def _create_chat_model(self, custom_model: Optional[str] = None) -> ChatOllama:
         """内部方法：创建聊天模型实例"""
