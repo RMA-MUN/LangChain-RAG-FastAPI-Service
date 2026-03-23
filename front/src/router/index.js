@@ -33,6 +33,15 @@ const routes = [
     }
   },
   {
+    path: '/aichat/:sessionId',
+    name: 'AIChatWithSession',
+    component: () => import('../views/AIChat.vue'),
+    meta: {
+      title: 'AI问答',
+      keepAlive: true
+    }
+  },
+  {
     path: '/my',
     name: 'My',
     component: () => import('../views/My.vue'),
@@ -57,6 +66,15 @@ const routes = [
     meta: {
       title: '设置',
       keepAlive: false
+    }
+  },
+  {
+    path: '/sessions',
+    name: 'Sessions',
+    component: () => import('../views/Sessions.vue'),
+    meta: {
+      title: '会话管理',
+      keepAlive: true
     }
   },
 ]

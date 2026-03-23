@@ -13,10 +13,12 @@ export const apiConfig = {
   // API端点配置
   endpoints: {
     // 认证相关
-    login: '/api/auth/login',
-    register: '/api/auth/register',
-    profile: '/api/auth/profile',
-    refreshToken: '/api/auth/refresh',
+    login: '/user/login/',
+    logout: '/user/logout/',
+    profile: '/user/detail/',
+    
+    // 文件上传
+    uploadFile: '/file/upload/',
     
     // AI对话相关
     agentQuery: '/api/agent/query',
@@ -29,10 +31,14 @@ export const apiConfig = {
     getSession: '/api/session/',
     deleteSession: '/api/session/',
     getAllSessions: '/api/sessions',
-    getUserSessions: '/api/sessions/',
+    getUserSessions: '/api/sessions',
     
     // 向量数据库
     uploadSingleFile: '/api/vector/add/single',
-    uploadMultipleFiles: '/api/vector/add/multiple'
+    uploadMultipleFiles: '/api/vector/add/multiple',
+    cleanVectors: '/api/vector/clean',
+    
+    // 文档重排序
+    reorderDocuments: '/api/reorder'
   }
 }

@@ -27,7 +27,11 @@ export default defineConfig({
         changeOrigin: true
       },
       // 用户相关接口代理到8001端口
-      '/api/auth': {
+      '/user': {
+        target: 'http://127.0.0.1:8001',
+        changeOrigin: true
+      },
+      '/file': {
         target: 'http://127.0.0.1:8001',
         changeOrigin: true
       }
