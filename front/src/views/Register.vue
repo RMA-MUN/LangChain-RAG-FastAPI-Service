@@ -15,130 +15,28 @@
           src="https://fastly.jsdelivr.net/npm/@vant/assets/cat.jpeg"
           round
         />
-        <h2>新闻资讯</h2>
+        <h2>用户注册</h2>
       </div>
       
-      <van-form @submit="onSubmit" class="register-form">
-        <van-cell-group inset>
-          <van-field
-            v-model="username"
-            name="username"
-            label="用户名"
-            placeholder="请输入用户名"
-            :rules="[{ required: true, message: '请填写用户名' }]"
-          />
-          <van-field
-            v-model="email"
-            type="email"
-            name="email"
-            label="邮箱"
-            placeholder="请输入邮箱"
-            :rules="[
-              { required: true, message: '请填写邮箱' },
-              { type: 'email', message: '请输入正确的邮箱格式' }
-            ]"
-          />
-          <van-field
-            v-model="phone"
-            name="phone"
-            label="手机号"
-            placeholder="请输入手机号"
-            :rules="[{ required: true, message: '请填写手机号' }]"
-          />
-          <van-field
-            v-model="password"
-            type="password"
-            name="password"
-            label="密码"
-            placeholder="请输入密码"
-            :rules="[{ required: true, message: '请填写密码' }]"
-          />
-          <van-field
-            v-model="confirmPassword"
-            type="password"
-            name="confirmPassword"
-            label="确认密码"
-            placeholder="请再次输入密码"
-            :rules="[
-              { required: true, message: '请确认密码' },
-              { validator: validatePassword, message: '两次密码不一致' }
-            ]"
-          />
-        </van-cell-group>
-        
-        <div class="submit-btn">
-          <van-button round block type="primary" native-type="submit" size="large">
-            注册
-          </van-button>
-        </div>
-        
-        <div class="login-link">
-          已有账号？<span @click="goToLogin">去登录</span>
-        </div>
-      </van-form>
+      <div class="register-tips">
+        <van-icon name="info-circle" color="#1989fa" />
+        <p>注册功能暂时不可用，请联系管理员获取账号</p>
+      </div>
+      
+      <div class="login-link">
+        已有账号？<span @click="goToLogin">去登录</span>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { showToast } from 'vant';
 import { useUserStore } from '../store/user';
 
 const router = useRouter();
 const userStore = useUserStore();
-
-const username = ref('');
-const email = ref('');
-const phone = ref('');
-const password = ref('');
-const confirmPassword = ref('');
-
-// 验证两次密码是否一致
-const validatePassword = () => {
-  return password.value === confirmPassword.value;
-};
-
-const onSubmit = async () => {
-  // 显示加载提示
-  showToast({
-    type: 'loading',
-    message: '注册中...',
-    forbidClick: true,
-    duration: 0
-  });
-  
-  try {
-    // 调用API注册
-    const result = await userStore.register({
-      username: username.value,
-      email: email.value,
-      phone: phone.value,
-      password: password.value,
-      confirmPassword: confirmPassword.value
-    });
-    
-    if (result.success) {
-      showToast({
-        type: 'success',
-        message: result.message
-      });
-      
-      router.push('/');
-    } else {
-      showToast({
-        type: 'fail',
-        message: result.message
-      });
-    }
-  } catch (error) {
-    showToast({
-      type: 'fail',
-      message: '注册失败，请稍后再试'
-    });
-  }
-};
 
 const onClickLeft = () => {
   router.back();
@@ -173,18 +71,25 @@ const goToLogin = () => {
   font-size: 22px;
 }
 
-.register-form {
-  width: 100%;
-  padding: 0 16px;
+.register-tips {
+  width: 90%;
+  padding: 20px;
+  background-color: #f0f9ff;
+  border-radius: 8px;
+  text-align: center;
+  margin: 20px 0;
+  border: 1px solid #e6f7ff;
 }
 
-.submit-btn {
-  margin: 24px 16px;
+.register-tips p {
+  margin: 10px 0 0 0;
+  color: #666;
+  font-size: 16px;
 }
 
 .login-link {
   text-align: center;
-  margin-top: 16px;
+  margin-top: 40px;
   color: #969799;
   font-size: 14px;
 }

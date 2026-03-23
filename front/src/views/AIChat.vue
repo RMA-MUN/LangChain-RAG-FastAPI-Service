@@ -1,12 +1,17 @@
 <template>
   <div class="ai-chat-container">
-    <van-nav-bar title="AI问答" fixed />
+    <van-nav-bar 
+      title="AI问答" 
+      fixed 
+      right-text="会话" 
+      @click-right="goToSessions"
+    />
     
     <div class="chat-content">
       <div class="messages-container" ref="messagesContainer">
         <div 
           v-for="(message, index) in messages" 
-          :key="index" 
+          :key="index"
           :class="['message', message.role === 'user' ? 'user-message' : 'ai-message']"
         >
           <div class="message-content">
@@ -47,12 +52,14 @@
 
 <script setup>
 import { ref, onMounted, nextTick, watch } from 'vue';
+import { useRouter, useRoute } from 'vue-router';
 import TabBar from '../components/TabBar.vue';
 import { showToast } from 'vant';
-import * as marked from 'marked';
+import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { apiConfig } from '../config/api';
 import { useUserStore } from '../store/user';
+import { useSessionStore } from '../store/session';
 
 // 从cookie中获取CSRF token
 const getCsrfToken = () => {
@@ -72,13 +79,28 @@ const messagesContainer = ref(null);
 const isLoading = ref(false);
 const sessionId = ref('');
 
+const router = useRouter();
+const route = useRoute();
 const userStore = useUserStore();
+const sessionStore = useSessionStore();
 
 // 格式化消息内容（支持Markdown）
 const formatMessage = (content) => {
   if (!content) return '';
-  // 使用marked解析Markdown，并用DOMPurify清理HTML
-  return DOMPurify.sanitize(marked.parse(content));
+  try {
+    // 使用marked解析Markdown，并用DOMPurify清理HTML
+    const parsed = marked(content, {
+      breaks: true,
+      gfm: true,
+      headerIds: false,
+      mangle: false
+    });
+    const sanitized = DOMPurify.sanitize(parsed);
+    return sanitized;
+  } catch (error) {
+    console.error('Markdown解析错误:', error);
+    return content;
+  }
 };
 
 // 发送消息
@@ -212,6 +234,11 @@ const fetchAIResponse = async (userMessage) => {
   }
 };
 
+// 跳转到会话管理页面
+const goToSessions = () => {
+  router.push('/sessions');
+};
+
 // 滚动到底部
 const scrollToBottom = () => {
   if (messagesContainer.value) {
@@ -224,10 +251,63 @@ watch(messages, () => {
   nextTick(scrollToBottom);
 }, { deep: true });
 
-// 组件挂载时滚动到底部
-onMounted(() => {
+// 监听路由参数变化，重新加载会话历史
+watch(() => route.params.sessionId, async (newSessionId) => {
+  if (newSessionId) {
+    try {
+      const result = await sessionStore.getSession(newSessionId);
+      if (result.success && sessionStore.currentSession) {
+        loadSessionHistory(sessionStore.currentSession);
+      } else {
+        showToast('加载会话历史失败');
+      }
+    } catch (error) {
+      console.error('加载会话历史失败:', error);
+      showToast('加载会话历史失败');
+    }
+  }
+}, { immediate: true });
+
+// 组件挂载时检查是否有当前会话或路由参数中的会话ID
+onMounted(async () => {
+  // 检查路由参数中是否有sessionId
+  const routeSessionId = route.params.sessionId;
+  
+  if (routeSessionId) {
+    // 从路由参数获取会话ID，加载会话历史
+    try {
+      const result = await sessionStore.getSession(routeSessionId);
+      if (result.success && sessionStore.currentSession) {
+        loadSessionHistory(sessionStore.currentSession);
+      } else {
+        showToast('加载会话历史失败');
+      }
+    } catch (error) {
+      console.error('加载会话历史失败:', error);
+      showToast('加载会话历史失败');
+    }
+  } else if (sessionStore.currentSession) {
+    // 从store中加载会话历史
+    loadSessionHistory(sessionStore.currentSession);
+  }
+  
   scrollToBottom();
 });
+
+// 加载会话历史
+const loadSessionHistory = (session) => {
+  if (session.history && session.history.length > 0) {
+    // 清空当前消息
+    messages.value = [];
+    // 加载历史消息
+    session.history.forEach(([userMsg, aiMsg]) => {
+      messages.value.push({ role: 'user', content: userMsg });
+      messages.value.push({ role: 'assistant', content: aiMsg });
+    });
+    // 设置会话ID
+    sessionId.value = session.session_id;
+  }
+};
 </script>
 
 <style scoped>
@@ -355,10 +435,11 @@ onMounted(() => {
   padding: 10px;
   border-radius: 4px;
   overflow-x: auto;
+  margin: 10px 0;
 }
 
 :deep(code) {
-  font-family: monospace;
+  font-family: 'Courier New', Courier, monospace;
   background-color: #f0f0f0;
   padding: 2px 4px;
   border-radius: 4px;
@@ -366,14 +447,81 @@ onMounted(() => {
 
 :deep(p) {
   margin: 8px 0;
+  line-height: 1.5;
 }
 
 :deep(ul), :deep(ol) {
   padding-left: 20px;
+  margin: 8px 0;
+}
+
+:deep(li) {
+  margin: 4px 0;
+  line-height: 1.5;
 }
 
 :deep(a) {
   color: #1989fa;
   text-decoration: none;
+}
+
+:deep(a:hover) {
+  text-decoration: underline;
+}
+
+:deep(h1), :deep(h2), :deep(h3), :deep(h4), :deep(h5), :deep(h6) {
+  margin: 12px 0 8px 0;
+  font-weight: bold;
+}
+
+:deep(h1) {
+  font-size: 1.5em;
+}
+
+:deep(h2) {
+  font-size: 1.3em;
+}
+
+:deep(h3) {
+  font-size: 1.1em;
+}
+
+:deep(blockquote) {
+  border-left: 4px solid #1989fa;
+  padding-left: 10px;
+  margin: 10px 0;
+  color: #666;
+  background-color: #f9f9f9;
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+}
+
+:deep(hr) {
+  border: 0;
+  border-top: 1px solid #eee;
+  margin: 16px 0;
+}
+
+:deep(img) {
+  max-width: 100%;
+  border-radius: 4px;
+  margin: 8px 0;
+}
+
+:deep(table) {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+}
+
+:deep(th), :deep(td) {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+:deep(th) {
+  background-color: #f2f2f2;
+  font-weight: bold;
 }
 </style>
