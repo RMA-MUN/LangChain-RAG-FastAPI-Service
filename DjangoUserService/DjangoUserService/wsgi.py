@@ -1,5 +1,5 @@
 """
-WSGI config for DjangoOfficeProject project.
+WSGI config for DjangoUserService project.
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 
@@ -11,6 +11,6 @@ import os
 
 from django.core.wsgi import get_wsgi_application
 
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DjangoOfficeProject.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DjangoUserService.settings')
 
 application = get_wsgi_application()

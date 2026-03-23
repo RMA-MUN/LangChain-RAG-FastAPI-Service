@@ -1,5 +1,5 @@
 """
-URL configuration for DjangoOfficeProject project.
+URL configuration for DjangoUserService project.
 
 The `urlpatterns` list routes URLs to views. For more information please see:
     https://docs.djangoproject.com/en/5.2/topics/http/urls/
@@ -24,7 +24,7 @@ from rest_framework import permissions
 
 # Swagger文档配置
 swagger_info = openapi.Info(
-    title="用户管理API",
+    title="用户管理API - Django",
     default_version='v1',
     description="用户管理系统API文档",
     terms_of_service="https://www.example.com/terms/",
@@ -39,11 +39,10 @@ schema_view = get_schema_view(
 )
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
-    path('user/', include('apps.user.urls')),
-    path('file/', include('apps.file.urls')),
-    # Swagger文档端点
-    path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
-    path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-
+                  path('admin/', admin.site.urls),
+                  path('user/', include('apps.user.urls')),
+                  path('file/', include('apps.file.urls')),
+                  # Swagger文档端点
+                  path('docs/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
+                  path('redoc/', schema_view.with_ui('redoc', cache_timeout=0), name='schema-redoc'),
+              ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

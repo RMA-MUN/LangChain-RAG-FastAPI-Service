@@ -1,5 +1,5 @@
 """
-启动celery： celery -A DjangoOfficeProject worker -l INFO -P gevent -Q celery,email
+启动celery： celery -A DjangoUserService worker -l INFO -P gevent -Q celery,email
 """
 
 import os
@@ -8,9 +8,9 @@ from celery.signals import after_setup_logger
 import logging
 
 # 设置django的settings模块
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DjangoOfficeProject.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'DjangoUserService.settings')
 
-app = Celery('DjangoOfficeProject')
+app = Celery('DjangoUserService')
 
 app.conf.timezone = 'Asia/Shanghai'
 
