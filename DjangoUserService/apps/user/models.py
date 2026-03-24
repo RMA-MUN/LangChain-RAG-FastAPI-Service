@@ -54,6 +54,14 @@ class UserManager(BaseUserManager):
 
     acreate_user.alters_data = True
 
+class GenderChoice(models.IntegerChoices):
+    """
+    性别选择
+    """
+    MALE = 1, "男"
+    FEMALE = 2, "女"
+    OTHER = 3, "其他"
+
 class User(AbstractBaseUser):
     """
     自定义用户模型，继承自AbstractBaseUser
@@ -71,6 +79,13 @@ class User(AbstractBaseUser):
         choices=UserStatusChoice,
         default=UserStatusChoice.DISABLED
     )
+    # 性别
+    gender = models.IntegerField(
+        choices=GenderChoice,
+        null=True, blank=True
+    )
+    # 个人简介
+    bio = models.TextField(null=True, blank=True)
     date_joined = models.DateTimeField(auto_now_add=True)
     last_login = models.DateTimeField(null=True, blank=True)
     avatar = models.CharField(max_length=255, null=True, blank=True)
