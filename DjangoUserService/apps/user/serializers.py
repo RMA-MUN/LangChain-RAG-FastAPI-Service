@@ -58,7 +58,7 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        exclude = ('password',)
+        fields = ('uuid', 'username', 'email', 'telephone', 'gender', 'bio', 'avatar', 'status', 'date_joined', 'last_login')
 
 
 class ResetPasswordSerializer(serializers.Serializer):
@@ -137,7 +137,7 @@ class UserUpdateSerializer(serializers.ModelSerializer):
     """用户信息更新序列化器"""
     class Meta:
         model = User
-        fields = ('username', 'telephone')
+        fields = ('username', 'telephone', 'avatar', 'gender', 'bio')  # 添加 avatar、gender 和 bio 字段
     
     def validate(self, attrs):
         """验证更新信息"""

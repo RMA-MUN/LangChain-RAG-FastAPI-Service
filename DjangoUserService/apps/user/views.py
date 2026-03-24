@@ -32,39 +32,6 @@ jwttoken = JWTTokenGenerator()
 
 class LoginView(APIView):
     """类视图，处理用户登录"""
-    @swagger_auto_schema(
-        request_body=LoginSerializer,
-        responses={
-            200: openapi.Response(
-                description="登录成功",
-                examples={
-                    "application/json": {
-                        "message": "用户名 登录成功",
-                        "user": {
-                            "uuid": "uuid",
-                            "username": "用户名",
-                            "email": "email@example.com",
-                            "telephone": "13800138000",
-                            "is_active": True,
-                            "status": 1,
-                            "date_joined": "2026-03-17T13:45:18Z"
-                        },
-                        "token": "jwt_token"
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="登录失败",
-                examples={
-                    "application/json": {
-                        "detail": {
-                            "non_field_errors": ["用户名或邮箱不存在", "密码错误", "用户状态异常，请检查是否激活或已被锁定"]
-                        }
-                    }
-                }
-            )
-        }
-    )
     def post(self, request) -> Response:
         """
         处理post请求，验证用户登录
@@ -85,41 +52,6 @@ class LoginView(APIView):
 
 class RegisterView(APIView):
     """类视图，处理用户注册"""
-    @swagger_auto_schema(
-        request_body=RegisterSerializer,
-        responses={
-            201: openapi.Response(
-                description="注册成功",
-                examples={
-                    "application/json": {
-                        "message": "用户名 注册成功",
-                        "user": {
-                            "uuid": "uuid",
-                            "username": "用户名",
-                            "email": "email@example.com",
-                            "telephone": "13800138000",
-                            "is_active": True,
-                            "status": 1,
-                            "date_joined": "2026-03-17T13:45:18Z"
-                        },
-                        "token": "jwt_token"
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="注册失败",
-                examples={
-                    "application/json": {
-                        "detail": {
-                            "email": ["该邮箱已被注册"],
-                            "telephone": ["该电话号码已被注册"],
-                            "confirm_password": ["密码和确认密码不一致"]
-                        }
-                    }
-                }
-            )
-        }
-    )
     @rate_limit(limit=1, window=60)
     def post(self, request) -> Response:
         """
@@ -139,37 +71,6 @@ class RegisterView(APIView):
 
 class ResetPasswordView(AuthenticatedView):
     """类视图，处理用户重置密码"""
-    @swagger_auto_schema(
-        request_body=ResetPasswordSerializer,
-        responses={
-            200: openapi.Response(
-                description="密码重置成功",
-                examples={
-                    "application/json": {
-                        "message": "密码重置成功"
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="密码重置失败",
-                examples={
-                    "application/json": {
-                        "detail": {
-                            "non_field_errors": ["请检查旧密码是否正确", "新密码不能和旧密码相同", "新密码和确认密码不一致"]
-                        }
-                    }
-                }
-            ),
-            401: openapi.Response(
-                description="未授权",
-                examples={
-                    "application/json": {
-                        "detail": "认证失败"
-                    }
-                }
-            )
-        }
-    )
     def post(self, request) -> Response:
         """
         处理post请求，重置用户密码
@@ -207,43 +108,6 @@ class ResetPasswordView(AuthenticatedView):
 
 class TokenRefreshView(APIView):
     """处理Token刷新请求"""
-    @swagger_auto_schema(
-        request_body=openapi.Schema(
-            type=openapi.TYPE_OBJECT,
-            properties={
-                'token': openapi.Schema(type=openapi.TYPE_STRING, description='旧Token')
-            },
-            required=['token']
-        ),
-        responses={
-            200: openapi.Response(
-                description="Token刷新成功",
-                examples={
-                    "application/json": {
-                        "message": "Token刷新成功",
-                        "token": "new_jwt_token",
-                        "expire_time": 1715999118
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="Token刷新失败",
-                examples={
-                    "application/json": {
-                        "detail": "Token刷新失败"
-                    }
-                }
-            ),
-            401: openapi.Response(
-                description="Token无效",
-                examples={
-                    "application/json": {
-                        "detail": "Token已过期，请重新登录"
-                    }
-                }
-            )
-        }
-    )
     def post(self, request) -> Response:
         """
         处理post请求，刷新用户Token
@@ -282,42 +146,15 @@ def get_user_info(user):
         "username": serializer.data.get('username'),
         "email": serializer.data.get('email'),
         "avatar": serializer.data.get('avatar'),
+        "telephone": serializer.data.get('telephone'),
+        "gender": serializer.data.get('gender'),
+        "bio": serializer.data.get('bio'),
         "create_time": serializer.data.get('date_joined'),
         "last_login": serializer.data.get('last_login'),
     }
 
-
 class UserDetailView(AuthenticatedView):
     """获取当前登录用户详情"""
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(
-                description="获取用户详情成功",
-                examples={
-                    "application/json": {
-                        "message": "获取用户详情成功",
-                        "user": {
-                            "uuid": "uuid",
-                            "username": "用户名",
-                            "email": "email@example.com",
-                            "telephone": "13800138000",
-                            "is_active": True,
-                            "status": 1,
-                            "date_joined": "2026-03-17T13:45:18Z"
-                        }
-                    }
-                }
-            ),
-            401: openapi.Response(
-                description="未授权",
-                examples={
-                    "application/json": {
-                        "detail": "认证失败"
-                    }
-                }
-            )
-        }
-    )
     def get(self, request) -> Response:
         """
         处理get请求，获取当前登录用户详情
@@ -325,51 +162,15 @@ class UserDetailView(AuthenticatedView):
         :return: Response对象，包含用户详情
         """
         user_info = get_user_info(request.user)
-        return Response({"message": "获取用户详情成功", "user": user_info}, status=status.HTTP_200_OK)
+        return Response({
+            "success": True,
+            "message": "获取用户详情成功",
+            "data": user_info
+        }, status=status.HTTP_200_OK)
 
 
 class UserUpdateView(AuthenticatedView):
     """更新当前登录用户信息"""
-    @swagger_auto_schema(
-        request_body=UserUpdateSerializer,
-        responses={
-            200: openapi.Response(
-                description="用户信息更新成功",
-                examples={
-                    "application/json": {
-                        "message": "用户信息更新成功",
-                        "user": {
-                            "uuid": "uuid",
-                            "username": "用户名",
-                            "email": "email@example.com",
-                            "telephone": "13800138000",
-                            "is_active": True,
-                            "status": 1,
-                            "date_joined": "2026-03-17T13:45:18Z"
-                        }
-                    }
-                }
-            ),
-            400: openapi.Response(
-                description="用户信息更新失败",
-                examples={
-                    "application/json": {
-                        "detail": {
-                            "telephone": ["该电话号码已被注册"]
-                        }
-                    }
-                }
-            ),
-            401: openapi.Response(
-                description="未授权",
-                examples={
-                    "application/json": {
-                        "detail": "认证失败"
-                    }
-                }
-            )
-        }
-    )
     def put(self, request) -> Response:
         """
         处理put请求，更新当前登录用户信息
@@ -400,26 +201,7 @@ class UserUpdateView(AuthenticatedView):
 
 class UserLogOutView(APIView):
     """用户注销"""
-    @swagger_auto_schema(
-        responses={
-            200: openapi.Response(
-                description="用户注销成功",
-                examples={
-                    "application/json": {
-                        "message": "用户注销成功"
-                    }
-                }
-            ),
-            401: openapi.Response(
-                description="未授权",
-                examples={
-                    "application/json": {
-                        "detail": "认证失败"
-                    }
-                }
-            )
-        }
-    )
+
     def post(self, request) -> Response:
         """
         处理post请求，用户注销
