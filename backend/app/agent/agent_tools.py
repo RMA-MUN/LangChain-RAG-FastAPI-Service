@@ -1,15 +1,15 @@
 from typing import List
 
-import httpx
 from langchain_core.tools import tool
 
 from app.core.logger_handler import logger
 from app.rag.rag_service import RagService
+from app.rag.reorder_service import reorder_service
 from app.utils.auth_utils import decode_django_jwt
 
 import datetime
 
-@tool(description="用于从向量数据库里检索文档并生成摘要。返回格式为：'摘要: [摘要内容]\\n\\n检索到的文档列表:\\n1. [文档1内容]\\n2. [文档2内容]\\n...'。获取结果后，必须提取文档列表并使用`reorder_documents_tools`工具进行重排序")
+@tool(description="用于从向量数据库里检索文档并生成摘要，返回包含文档列表和摘要的结果。返回格式为：'摘要: [摘要内容]\n\n检索到的文档列表:\n1. [文档1内容]\n2. [文档2内容]\n...'。注意：文档已经过自动重排序，无需再调用重排序工具")
 async def rag_summary_tools(query: str) -> str:
     """RAG 摘要工具"""
     result = await RagService().get_documents_and_summary(query)
@@ -18,42 +18,24 @@ async def rag_summary_tools(query: str) -> str:
 
     # 格式化返回结果
     formatted_result = f"摘要: {summary}\n\n"
-    formatted_result += "检索到的文档列表:\n"
+    formatted_result += "检索到的文档列表（已重排序）:\n"
     for i, doc in enumerate(documents, 1):
-        formatted_result += f"{i}. {doc}\n"  # 显示完整文档内容，便于模型提取
+        formatted_result += f"{i}. {doc}\n"  # 显示完整文档内容
 
     return formatted_result
 
-@tool(description="必须在使用`rag_summary_tools`后调用此工具。传入原始查询语句query和从`rag_summary_tools`返回结果中提取的文档列表documents，返回重排序后的文档列表，包含文档内容和相似度")
+@tool(description="用于对文档列表进行重排序，传入查询语句query和文档列表documents，返回重排序后的文档列表，包含文档内容和相似度。注意：rag_summary_tools已内置重排序功能，通常不需要单独调用此工具")
 async def reorder_documents_tools(query: str, documents: List[str]) -> str:
     """重排序文档工具"""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                "http://localhost:8000/api/reorder",
-                json={
-                    "query": query,
-                    "documents": documents
-                },
-                timeout=30.0
-            )
-            response.raise_for_status()  # 检查响应状态
-            result = response.json()
-            
-            if result.get("code") == 200:
-                sorted_docs = result.get("data", {}).get("documents", [])
-                # 格式化返回结果
-                formatted_result = "重排序后的文档列表：\n"
-                for i, doc in enumerate(sorted_docs, 1):
-                    formatted_result += f"{i}. 相似度: {doc.get('similarity', 0):.4f}\n"
-                    formatted_result += f"   内容: {doc.get('document', '')}\n\n"
-                # 记录日志
-                logger.info(formatted_result)
-                return formatted_result
-            else:
-                return f"重排序失败: {result.get('message', '未知错误')}"
-    except Exception as e:
-        return f"重排序请求失败: {str(e)}"
+    result = await reorder_service.reorder_documents(query, documents)
+    if result["success"]:
+        # 格式化返回结果
+        formatted_result = reorder_service.format_reorder_result(result["documents"])
+        # 记录日志
+        logger.info(formatted_result)
+        return formatted_result
+    else:
+        return f"重排序失败: {result['error']}"
 
 @tool(description="从JWT中获取当前用户信息，参数为完整的JWT token字符串")
 async def get_user_info_tools(token: str) -> str:

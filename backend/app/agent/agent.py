@@ -79,7 +79,7 @@ class AgentFactory:
     def _create_prompt(self, custom_system_prompt: Optional[str] = None) -> ChatPromptTemplate:
         """内部方法：创建提示词模板"""
         return ChatPromptTemplate.from_messages([
-            ("system", custom_system_prompt or self.default_system_prompt),
+            ("system", "{system_prompt}"),
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad")
@@ -108,12 +108,13 @@ class AgentFactory:
         """
         # 1. 创建组件（每次都重新创建，避免全局状态污染）
         chat_model = self._create_chat_model(custom_model)
-        prompt = self._create_prompt(custom_system_prompt)
+        prompt = self._create_prompt()
         tools = custom_tools or self.default_tools
+        system_prompt = custom_system_prompt or self.default_system_prompt
 
         # 2. 创建 Agent
         agent = create_tool_calling_agent(chat_model, tools, prompt)
-        
+
         # 3. 创建 Executor
         return AgentExecutor(
             agent=agent,
@@ -125,7 +126,7 @@ class AgentFactory:
 
 
 # 初始化全局工厂配置
-agent_factory = AgentFactory(model="qwen2.5:7b")
+agent_factory = AgentFactory()
 
 
 async def get_agent_response(
@@ -159,7 +160,8 @@ async def get_agent_response(
         steps = []
         async for chunk in agent_executor.astream({
             "input": query,
-            "chat_history": chat_history
+            "chat_history": chat_history,
+            "system_prompt": agent_factory.default_system_prompt
         }):
             if "output" in chunk:
                 full_response.append(chunk["output"])
@@ -209,7 +211,7 @@ async def get_agent_stream_response(
     """
     try:
         logger.info(f"【Agent流式响应】开始处理请求，用户ID: {user_id}, 会话ID: {session_id}, 查询: {query}")
-        
+
         # 获取会话历史
         history = await sm.session_manager.get_history(session_id, user_id)
         logger.info(f"【Agent流式响应】获取会话历史成功，历史记录数: {len(history)}")
@@ -218,9 +220,9 @@ async def get_agent_stream_response(
         result = await get_agent_response(query, history, custom_tools, **kwargs)
         response = result.get("response")
         steps = result.get("steps", [])
-        
+
         logger.info(f"【Agent流式响应】获取Agent响应成功，响应长度: {len(response)}")
-        
+
         # 记录步骤信息
         if steps:
             logger.info(f"【Agent流式响应】执行步骤数: {len(steps)}")
