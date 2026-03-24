@@ -27,6 +27,7 @@ dependencies = [
     "langchain>=1.2.13",
     "langchain-chroma>=1.1.0",
     "python-multipart>=0.0.22",
+    "dashscope>=1.25.14",
 ]
 
 # 开发依赖
