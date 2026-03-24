@@ -2,6 +2,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 
 from app.rag.vector_store import VectorStoreService
+from app.rag.reorder_service import reorder_service
 from app.utils.factory import chat_model
 from app.utils.prompt_loader import load_prompt
 from app.core.logger_handler import logger
@@ -47,6 +48,23 @@ class RagService:
             logger.error(f"【RAG】检索文档失败: {e}")
             return []
 
+    async def reorder_documents(self, query: str, documents: list) -> list:
+        """
+        对文档进行重排序
+        :param query: 查询语句
+        :param documents: 文档列表
+        :return: 重排序后的文档列表
+        """
+        result = await reorder_service.reorder_documents(query, documents)
+        if result["success"]:
+            # 提取重排序后的文档内容
+            reordered_documents = [doc.get("document", "") for doc in result["documents"]]
+            logger.info(f"【RAG】文档重排序成功，返回 {len(reordered_documents)} 个文档")
+            return reordered_documents
+        else:
+            logger.warning(f"【RAG】重排序失败: {result['error']}")
+            return documents
+
     async def get_documents_and_summary(self, query: str) -> dict:
         """
         获取文档列表和摘要
@@ -59,10 +77,13 @@ class RagService:
             # 提取文档内容列表
             document_contents = [doc.page_content for doc in documents]
             
-            # 构建上下文
+            # 对文档进行重排序
+            reordered_documents = await self.reorder_documents(query, document_contents)
+            
+            # 构建上下文（使用重排序后的文档）
             context = ""
-            for i, doc in enumerate(documents, 1):
-                context += f"【参考资料{i}】:{doc.page_content}\n"
+            for i, doc in enumerate(reordered_documents, 1):
+                context += f"【参考资料{i}】:{doc}\n"
             
             # 如果没有检索到文档
             if not context:
@@ -75,7 +96,7 @@ class RagService:
             response = await self.chain.ainvoke({"input": query, "context": context})
             logger.info(f"【RAG】生成摘要成功")
             return {
-                "documents": document_contents,
+                "documents": reordered_documents,
                 "summary": response
             }
         except Exception as e:
