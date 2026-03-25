@@ -11,12 +11,17 @@ from app.router.chat_service import ChatService, get_router_service
 from app.schemas.models import QueryRequest, RAGResponse, RAGRequest, SessionResponse, ReorderResponse, ReorderRequest
 from app.utils.auth_utils import get_current_user_id
 from app.core.success_response import success_response
+from app.core.rate_limit import rate_limit
 
 
 chat_router = APIRouter(prefix="/api", tags=["api"])
 
 @chat_router.post("/agent/query/stream")
-async def query_stream(request: QueryRequest, user_id: str = Depends(get_current_user_id)):
+async def query_stream(
+        request: QueryRequest,
+        user_id: str = Depends(get_current_user_id),
+        _: None = Depends(rate_limit(limit=10, window=60))
+):
     """查询Agent流式响应"""
     # 如果没有提供session_id，自动生成一个
     session_id = request.session_id or str(uuid.uuid4())
@@ -33,7 +38,11 @@ async def query_stream(request: QueryRequest, user_id: str = Depends(get_current
 
 
 @chat_router.post("/rag/query", response_model=RAGResponse)
-async def query_rag(request: RAGRequest, router_service: ChatService = Depends(get_router_service)):
+async def query_rag(
+        request: RAGRequest,
+        router_service: ChatService = Depends(get_router_service),
+        _: None = Depends(rate_limit(limit=15, window=60))
+):
     """RAG检索"""
     response = await router_service.handle_rag_query(request.query)
     return success_response(data=RAGResponse(response=response))
@@ -69,7 +78,12 @@ async def get_user_sessions(user_id: str, current_user_id: str = Depends(get_cur
 
 
 @chat_router.post("/vector/add/single")
-async def add_vector_single(file: UploadFile = File(...), user_id: str = Depends(get_current_user_id), router_service: ChatService = Depends(get_router_service)):
+async def add_vector_single(
+        file: UploadFile = File(...),
+        user_id: str = Depends(get_current_user_id),
+        router_service: ChatService = Depends(get_router_service),
+        _: None = Depends(rate_limit(limit=5, window=60))
+):
     """上传文件，将文件保存到向量数据库，仅支持TXT和PDF"""
     filename = await router_service.handle_add_vector_single(file, user_id)
     return success_response(message=f"文件 {filename} 已成功上传并存储到向量数据库")
@@ -77,7 +91,12 @@ async def add_vector_single(file: UploadFile = File(...), user_id: str = Depends
 
 
 @chat_router.post("/vector/add/multiple")
-async def add_vector_multiple(files: List[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"), user_id: str = Depends(get_current_user_id), router_service: ChatService = Depends(get_router_service)):
+async def add_vector_multiple(
+        files: List[UploadFile] = File(..., description="要上传的文件列表，仅支持PDF和TXT格式"),
+        user_id: str = Depends(get_current_user_id),
+        router_service: ChatService = Depends(get_router_service),
+        _: None = Depends(rate_limit(limit=3, window=60))
+):
     """上传多个文件，将文件保存到向量数据库，仅支持TXT和PDF"""
     filenames = await router_service.handle_add_vector_multiple(files, user_id)
     return success_response(message=f"文件 {filenames} 已成功上传并存储到向量数据库")
@@ -91,7 +110,11 @@ async def clean_user_vectors(user_id: str = Depends(get_current_user_id), router
 
 
 @chat_router.post("/reorder", response_model=ReorderResponse)
-async def reorder_documents(request: ReorderRequest, router_service: ChatService = Depends(get_router_service)):
+async def reorder_documents(
+        request: ReorderRequest,
+        router_service: ChatService = Depends(get_router_service),
+        _: None = Depends(rate_limit(limit=20, window=60))
+):
     """使用Ollama本地的嵌入模型对文档进行中文重排序"""
     sorted_docs = await router_service.handle_reorder(request.query, request.documents)
     return success_response(data=ReorderResponse(documents=sorted_docs))
