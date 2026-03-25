@@ -12,8 +12,12 @@ from app.router.user import user_router
 from app.services.database_session_manager import init_database_session_manager
 
 from app.core.failed_response_register import register_exception_handlers
+from app.core.rate_limit import RateLimitMiddleware
 
 app = FastAPI()
+
+# 集成限流中间件
+app.add_middleware(RateLimitMiddleware, limit=100, window=60) # 每分钟100个请求
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
