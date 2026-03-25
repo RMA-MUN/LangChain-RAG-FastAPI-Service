@@ -241,6 +241,77 @@ export const useUserStore = defineStore('user', {
           message: error.response?.data?.detail || '更新密码请求失败，请稍后再试'
         };
       }
+    },
+    
+    // 用户注册
+    async register(userData) {
+      try {
+        console.log('=== 开始注册请求 ===');
+        console.log('请求数据:', userData);
+        
+        // 发送注册请求到用户服务
+        const response = await axios.post('/user/register/', {
+          username: userData.username,
+          email: userData.email,
+          telephone: userData.telephone || '',
+          password: userData.password,
+          confirm_password: userData.confirm_password
+        }, {
+          headers: {
+            'X-CSRFTOKEN': getCsrfToken(),
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        console.log('=== 注册响应 ===');
+        console.log('响应状态码:', response.status);
+        console.log('响应数据:', response.data);
+        
+        // 根据后端返回的数据格式判断注册是否成功
+        // 后端返回格式: { status: 201, message: "注册成功", user: {...}, token: "..." }
+        if (response.data.status === 201 && response.data.token) {
+          // 注册成功
+          const token = response.data.token;
+          const userInfo = response.data.user;
+          
+          // 保存token到localStorage
+          localStorage.setItem('jwt_token', token);
+          
+          // 更新store状态
+          this.userInfo = userInfo;
+          this.token = token;
+          this.isLogin = true;
+          
+          console.log('注册成功，已保存用户信息和token');
+          return {
+            success: true,
+            message: response.data.message || '注册成功'
+          };
+        } else {
+          // 注册失败
+          console.log('注册失败:', response.data.message || '未知错误');
+          return {
+            success: false,
+            message: response.data.message || '注册失败'
+          };
+        }
+      } catch (error) {
+        console.error('=== 注册请求异常 ===');
+        console.error('错误:', error);
+        
+        // 处理错误响应
+        let errorMessage = '注册失败，请稍后重试';
+        if (error.response?.data?.message) {
+          errorMessage = error.response.data.message;
+        } else if (error.response?.data?.detail) {
+          errorMessage = error.response.data.detail;
+        }
+        
+        return {
+          success: false,
+          message: errorMessage
+        };
+      }
     }
   },
   

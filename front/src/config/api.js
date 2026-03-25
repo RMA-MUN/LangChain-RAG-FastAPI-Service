@@ -15,6 +15,7 @@ export const apiConfig = {
     // 认证相关
     login: '/user/login/',
     logout: '/user/logout/',
+    register: '/user/register/',
     profile: '/user/detail/',
     
     // 文件上传
