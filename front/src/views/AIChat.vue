@@ -56,7 +56,11 @@ import { useRouter, useRoute } from 'vue-router';
 import TabBar from '../components/TabBar.vue';
 import { showToast } from 'vant';
 import { marked } from 'marked';
+import { markedHighlight } from 'marked-highlight';
 import DOMPurify from 'dompurify';
+import hljs from 'highlight.js';
+import 'highlight.js/styles/monokai-sublime.css';
+import 'highlight.js/lib/common';
 import { apiConfig } from '../config/api';
 import { useUserStore } from '../store/user';
 import { useSessionStore } from '../store/session';
@@ -85,7 +89,16 @@ const route = useRoute();
 const userStore = useUserStore();
 const sessionStore = useSessionStore();
 
-// 格式化消息内容（支持Markdown）
+// 配置marked使用marked-highlight插件
+marked.use(markedHighlight({
+  langPrefix: 'hljs language-',
+  highlight(code, lang) {
+    const language = hljs.getLanguage(lang) ? lang : 'plaintext';
+    return hljs.highlight(code, { language }).value;
+  }
+}));
+
+// 格式化消息内容（支持Markdown和代码高亮）
 const formatMessage = (content) => {
   if (!content) return '';
   try {
@@ -261,7 +274,9 @@ const scrollToBottom = () => {
 
 // 监听消息变化，自动滚动
 watch(messages, () => {
-  nextTick(scrollToBottom);
+  nextTick(() => {
+    scrollToBottom();
+  });
 }, { deep: true });
 
 // 监听路由参数变化，重新加载会话历史
@@ -444,18 +459,27 @@ const loadSessionHistory = (session) => {
 
 /* Markdown样式 */
 :deep(pre) {
-  background-color: #f0f0f0;
-  padding: 10px;
-  border-radius: 4px;
+  background-color: #1e1e1e;
+  padding: 15px;
+  border-radius: 6px;
   overflow-x: auto;
   margin: 10px 0;
+  color: #d4d4d4;
+}
+
+:deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+  border-radius: 0;
+  color: #d4d4d4;
 }
 
 :deep(code) {
-  font-family: 'Courier New', Courier, monospace;
-  background-color: #f0f0f0;
-  padding: 2px 4px;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  background-color: rgba(0, 0, 0, 0.05);
+  padding: 2px 6px;
   border-radius: 4px;
+  font-size: 0.9em;
 }
 
 :deep(p) {
