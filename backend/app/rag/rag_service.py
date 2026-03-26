@@ -1,3 +1,5 @@
+import asyncio
+
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 
@@ -73,34 +75,76 @@ class RagService:
         """
         try:
             documents = await self.retrieve_document(query)
-            
+
             # 提取文档内容列表
             document_contents = [doc.page_content for doc in documents]
-            
+
             # 对文档进行重排序
             reordered_documents = await self.reorder_documents(query, document_contents)
-            
-            # 构建上下文（使用重排序后的文档）
-            context = ""
-            for i, doc in enumerate(reordered_documents, 1):
-                context += f"【参考资料{i}】:{doc}\n"
-            
+
             # 如果没有检索到文档
-            if not context:
+            if not reordered_documents:
                 return {
                     "documents": [],
                     "summary": "抱歉，我没有找到相关的信息。"
                 }
-            
-            # 生成摘要
-            response = await self.chain.ainvoke({"input": query, "context": context})
-            logger.info(f"【RAG】生成摘要成功")
-            return {
-                "documents": reordered_documents,
-                "summary": response
-            }
+
+            # 使用分批总结策略
+            try:
+                # 对每个文档单独总结
+                individual_summaries = []
+                max_documents = 3  # 使用前3个最相关的文档
+                
+                for i, doc in enumerate(reordered_documents[:max_documents], 1):
+                    logger.info(f"【RAG】正在总结第{i}个文档")
+                    # 为单个文档构建上下文
+                    single_context = f"【参考资料{i}】:{doc}\n"
+                    # 生成单个文档的摘要
+                    import time
+                    start_time = time.time()
+                    single_summary = await asyncio.wait_for(
+                        self.chain.ainvoke({"input": query, "context": single_context}),
+                        timeout=30.0  # 单个文档总结超时时间
+                    )
+                    end_time = time.time()
+                    logger.info(f"【RAG】第{i}个文档总结耗时: {end_time - start_time:.2f}秒")
+                    individual_summaries.append(single_summary)
+                    logger.info(f"【RAG】第{i}个文档总结完成")
+
+                # 如果只有一个文档，直接返回其摘要
+                if len(individual_summaries) == 1:
+                    logger.info(f"【RAG】生成摘要成功")
+                    return {
+                        "documents": reordered_documents,
+                        "summary": individual_summaries[0]
+                    }
+
+                # 合并多个文档的摘要，生成最终总结
+                combined_context = "以下是多个文档的摘要，请综合这些信息生成最终的回答：\n\n"
+                for i, summary in enumerate(individual_summaries, 1):
+                    combined_context += f"【文档{i}摘要】:{summary}\n\n"
+
+                logger.info(f"【RAG】合并摘要完成，开始生成最终总结")
+                
+                # 生成最终总结
+                final_summary = await asyncio.wait_for(
+                    self.chain.ainvoke({"input": query, "context": combined_context}),
+                    timeout=30.0  # 最终总结超时时间
+                )
+                
+                logger.info(f"【RAG】生成摘要成功")
+                return {
+                    "documents": reordered_documents,
+                    "summary": final_summary
+                }
+            except asyncio.TimeoutError:
+                logger.error(f"【RAG】生成摘要超时")
+                return {
+                    "documents": reordered_documents,
+                    "summary": "抱歉，生成摘要超时，请稍后再试。"
+                }
         except Exception as e:
-            logger.error(f"【RAG】生成摘要失败: {e}")
+            logger.error(f"【RAG】生成摘要失败: {e}", exc_info=True)
             return {
                 "documents": [],
                 "summary": "抱歉，处理您的请求时出现了错误。"
