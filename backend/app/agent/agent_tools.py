@@ -37,7 +37,7 @@ async def reorder_documents_tools(query: str, documents: List[str]) -> str:
     else:
         return f"重排序失败: {result['error']}"
 
-@tool(description="从JWT中获取当前用户信息，参数为完整的JWT token字符串")
+@tool(description="当用户明确问自己的ID和用户名时，从JWT中获取当前用户ID和用户名，参数为完整的JWT token字符串")
 async def get_user_info_tools(token: str) -> str:
     """获取用户信息工具"""
     payload = decode_django_jwt(token)

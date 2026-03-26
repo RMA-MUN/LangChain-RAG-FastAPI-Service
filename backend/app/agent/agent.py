@@ -28,7 +28,7 @@ class AgentFactory:
 
     def __init__(
             self,
-            model: str = "qwen2.5:7b",
+            model: str = "qwen3.5:0.8b",
             api_key: Optional[str] = None,
             default_tools: Optional[List[BaseTool]] = None,
             default_middleware: Optional[List] = None,
@@ -52,7 +52,6 @@ class AgentFactory:
         """获取默认工具列表"""
         return [
             rag_summary_tools,
-            reorder_documents_tools,
             get_weather_tools,
             what_time_is_now,
             get_user_info_tools,
@@ -216,43 +215,60 @@ async def get_agent_stream_response(
         history = await sm.session_manager.get_history(session_id, user_id)
         logger.info(f"【Agent流式响应】获取会话历史成功，历史记录数: {len(history)}")
 
-        # 获取Agent响应
-        result = await get_agent_response(query, history, custom_tools, **kwargs)
-        response = result.get("response")
-        steps = result.get("steps", [])
+        # 从工厂获取全新的 Executor 实例
+        agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, **kwargs)
 
-        logger.info(f"【Agent流式响应】获取Agent响应成功，响应长度: {len(response)}")
+        # 构建聊天历史
+        chat_history: List[BaseMessage] = []
+        if history:
+            from langchain_core.messages import HumanMessage, AIMessage
+            for user_msg, assistant_msg in history:
+                chat_history.append(HumanMessage(content=user_msg))
+                chat_history.append(AIMessage(content=assistant_msg))
 
-        # 记录步骤信息
-        if steps:
-            logger.info(f"【Agent流式响应】执行步骤数: {len(steps)}")
-            for i, step in enumerate(steps):
-                logger.info(f"【Agent流式响应】步骤 {i+1}: 调用工具 {step['tool']}")
-                logger.info(f"【Agent流式响应】思考: {step['thought']}")
-                logger.info(f"【Agent流式响应】工具输入: {step['tool_input']}")
-                logger.info(f"【Agent流式响应】工具输出: {step['tool_output']}")
-                logger.info(f"【Agent流式响应】工具输出: {step['tool_output']}")
+        # 流式执行Agent
+        full_response = []
+        steps = []
+
+        # 先发送初始响应
+        yield f"data: {json.dumps({'type': 'response', 'content': '', 'session_id': session_id}, ensure_ascii=False)}\n\n"
+
+        # 流式处理Agent输出
+        async for chunk in agent_executor.astream({
+            "input": query,
+            "chat_history": chat_history,
+            "system_prompt": agent_factory.default_system_prompt
+        }):
+            if "output" in chunk:
+                chunk_content = chunk["output"]
+                full_response.append(chunk_content)
+                # 实时发送输出
+                yield f"data: {json.dumps({'type': 'response', 'content': chunk_content}, ensure_ascii=False)}\n\n"
+                await asyncio.sleep(0.1)
+            elif "intermediate_steps" in chunk:
+                for action, observation in chunk["intermediate_steps"]:
+                    # 记录日志
+                    logger.info(f"\n\n🧠 [Agent 思考] {action.log}")
+                    logger.info(f"🛠️ [调用工具] {action.tool}")
+                    logger.info(f"📥 [工具输入] {action.tool_input}")
+                    logger.info(f"📤 [工具结果] {observation}\n")
+                    # 收集步骤
+                    step = {
+                        "thought": action.log,
+                        "tool": action.tool,
+                        "tool_input": action.tool_input,
+                        "tool_output": observation
+                    }
+                    steps.append(step)
+                    # 发送步骤信息
+                    yield f"data: {json.dumps({'type': 'step', 'content': step}, ensure_ascii=False)}\n\n"
+                    await asyncio.sleep(0.1)
+
+        response = "".join(full_response) if full_response else "抱歉，我无法理解您的请求。"
 
         # 添加到会话历史
         await sm.session_manager.add_message(session_id, user_id, query, response)
         logger.info(f"【Agent流式响应】添加到会话历史成功")
-
-        # 先发送步骤信息
-        for step in steps:
-            yield f"data: {json.dumps({'type': 'step', 'content': step}, ensure_ascii=False)}\n\n"
-            await asyncio.sleep(0.1)
-
-        # 发送实际响应内容
-        yield f"data: {json.dumps({'type': 'response', 'content': '', 'session_id': session_id}, ensure_ascii=False)}\n\n"
-
-        # 模拟流式输出，将响应分割成多个块
-        chunk_size = 50
-        for i in range(0, len(response), chunk_size):
-            chunk = response[i:i+chunk_size]
-            # 发送SSE格式的数据
-            yield f"data: {json.dumps({'type': 'response', 'content': chunk}, ensure_ascii=False)}\n\n"
-            # 模拟网络延迟
-            await asyncio.sleep(0.1)
 
         # 发送结束标记
         yield f"data: {json.dumps({'type': 'done', 'session_id': session_id}, ensure_ascii=False)}\n\n"
