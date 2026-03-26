@@ -7,6 +7,7 @@ from langchain_chroma.vectorstores import cosine_similarity
 from langchain_ollama import OllamaEmbeddings
 import numpy as np
 
+from app.core.logger_handler import logger
 from app.rag.vector_store import VectorStoreService
 from app.rag.rag_service import RagService
 from app.agent.agent import get_agent_response
@@ -138,6 +139,10 @@ class ChatService:
         :return: 排序后的文档列表，包含文档内容和相似度
         """
         try:
+            # 检查文档列表是否为空
+            if not documents:
+                return []
+            
             # 初始化Ollama嵌入模型，使用配置文件中定义的模型
             embeddings = OllamaEmbeddings(
                 model=rag_config['text_embedding_model_name'],
@@ -149,6 +154,10 @@ class ChatService:
             
             # 获取所有文档的嵌入向量
             doc_embeddings = await embeddings.aembed_documents(documents)
+            
+            # 检查嵌入向量是否为空
+            if not doc_embeddings:
+                return []
             
             # 计算查询与每个文档的余弦相似度
             similarities = cosine_similarity(
@@ -166,7 +175,9 @@ class ChatService:
                     "document": documents[idx],
                     "similarity": float(similarities[idx])
                 })
-            
+
+            # log记录排序结果
+            logger.info(f"重排序结果: {sorted_docs}")
             return sorted_docs
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"重排序过程中出错: {str(e)}")
