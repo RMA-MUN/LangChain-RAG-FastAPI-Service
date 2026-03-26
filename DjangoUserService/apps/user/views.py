@@ -32,6 +32,23 @@ jwttoken = JWTTokenGenerator()
 
 class LoginView(APIView):
     """类视图，处理用户登录"""
+    @swagger_auto_schema(
+        request_body=LoginSerializer,
+        responses={
+            200: openapi.Response(
+                description="登录成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "user": UserSerializer,
+                        "token": openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(description="登录失败")
+        }
+    )
     def post(self, request) -> Response:
         """
         处理post请求，验证用户登录
@@ -52,6 +69,24 @@ class LoginView(APIView):
 
 class RegisterView(APIView):
     """类视图，处理用户注册"""
+    @swagger_auto_schema(
+        request_body=RegisterSerializer,
+        responses={
+            201: openapi.Response(
+                description="注册成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "status": openapi.Schema(type=openapi.TYPE_INTEGER),
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "user": UserSerializer,
+                        "token": openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(description="注册失败")
+        }
+    )
     # @rate_limit(limit=1, window=60)
     def post(self, request) -> Response:
         """
@@ -71,6 +106,22 @@ class RegisterView(APIView):
 
 class ResetPasswordView(AuthenticatedView):
     """类视图，处理用户重置密码"""
+    @swagger_auto_schema(
+        request_body=ResetPasswordSerializer,
+        responses={
+            200: openapi.Response(
+                description="密码重置成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "token": openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(description="密码重置失败")
+        }
+    )
     def post(self, request) -> Response:
         """
         处理post请求，重置用户密码
@@ -108,6 +159,30 @@ class ResetPasswordView(AuthenticatedView):
 
 class TokenRefreshView(APIView):
     """处理Token刷新请求"""
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            required=['token'],
+            properties={
+                'token': openapi.Schema(type=openapi.TYPE_STRING, description="旧Token")
+            }
+        ),
+        responses={
+            200: openapi.Response(
+                description="Token刷新成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "token": openapi.Schema(type=openapi.TYPE_STRING),
+                        "expire_time": openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(description="Token刷新失败"),
+            401: openapi.Response(description="Token无效")
+        }
+    )
     def post(self, request) -> Response:
         """
         处理post请求，刷新用户Token
@@ -155,6 +230,34 @@ def get_user_info(user):
 
 class UserDetailView(AuthenticatedView):
     """获取当前登录用户详情"""
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="获取用户详情成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "success": openapi.Schema(type=openapi.TYPE_BOOLEAN),
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "data": openapi.Schema(
+                            type=openapi.TYPE_OBJECT,
+                            properties={
+                                "id": openapi.Schema(type=openapi.TYPE_STRING),
+                                "username": openapi.Schema(type=openapi.TYPE_STRING),
+                                "email": openapi.Schema(type=openapi.TYPE_STRING),
+                                "avatar": openapi.Schema(type=openapi.TYPE_STRING),
+                                "telephone": openapi.Schema(type=openapi.TYPE_STRING),
+                                "gender": openapi.Schema(type=openapi.TYPE_STRING),
+                                "bio": openapi.Schema(type=openapi.TYPE_STRING),
+                                "create_time": openapi.Schema(type=openapi.TYPE_STRING),
+                                "last_login": openapi.Schema(type=openapi.TYPE_STRING)
+                            }
+                        )
+                    }
+                )
+            )
+        }
+    )
     def get(self, request) -> Response:
         """
         处理get请求，获取当前登录用户详情
@@ -171,6 +274,23 @@ class UserDetailView(AuthenticatedView):
 
 class UserUpdateView(AuthenticatedView):
     """更新当前登录用户信息"""
+    @swagger_auto_schema(
+        request_body=UserUpdateSerializer,
+        responses={
+            200: openapi.Response(
+                description="用户信息更新成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING),
+                        "user": UserSerializer,
+                        "token": openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            ),
+            400: openapi.Response(description="用户信息更新失败")
+        }
+    )
     def put(self, request) -> Response:
         """
         处理put请求，更新当前登录用户信息
@@ -201,7 +321,19 @@ class UserUpdateView(AuthenticatedView):
 
 class UserLogOutView(APIView):
     """用户注销"""
-
+    @swagger_auto_schema(
+        responses={
+            200: openapi.Response(
+                description="用户注销成功",
+                schema=openapi.Schema(
+                    type=openapi.TYPE_OBJECT,
+                    properties={
+                        "message": openapi.Schema(type=openapi.TYPE_STRING)
+                    }
+                )
+            )
+        }
+    )
     def post(self, request) -> Response:
         """
         处理post请求，用户注销
