@@ -1,2 +1,3 @@
 chat_model_name: qwen3.5:0.8b
 text_embedding_model_name: qwen3-embedding:0.6b
+reranker_model_name: qwen3.5:0.8b
