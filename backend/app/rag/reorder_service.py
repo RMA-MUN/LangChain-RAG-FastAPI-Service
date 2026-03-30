@@ -53,7 +53,7 @@ class ReorderService:
         # 模型实例（懒加载）
         self._model = None
     
-    def _get_model(self):
+    async def _get_model(self):
         """懒加载模型实例"""
         if self._model is None:
             logger.info(f"✅ 加载重排序模型：{self.LOCAL_MODEL_PATH}")
@@ -67,9 +67,9 @@ class ReorderService:
         return self._model
     
     @property
-    def model(self):
+    async def model(self):
         """获取模型实例（懒加载）"""
-        return self._get_model()
+        return await self._get_model()
     
     async def reorder_documents(self, query: str, documents: List[str]) -> Dict[str, Any]:
         """
@@ -121,7 +121,7 @@ class ReorderService:
             }
 
     @staticmethod
-    def format_reorder_result(sorted_docs: List[Dict]) -> str:
+    async def format_reorder_result(sorted_docs: List[Dict]) -> str:
         """
         格式化重排序结果
         :param sorted_docs: 重排序后的文档列表

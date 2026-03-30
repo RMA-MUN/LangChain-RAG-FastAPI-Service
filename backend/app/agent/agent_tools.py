@@ -30,7 +30,7 @@ async def reorder_documents_tools(query: str, documents: List[str]) -> str:
     result = await reorder_service.reorder_documents(query, documents)
     if result["success"]:
         # 格式化返回结果
-        formatted_result = reorder_service.format_reorder_result(result["documents"])
+        formatted_result = await reorder_service.format_reorder_result(result["documents"])
         # 记录日志
         logger.info(formatted_result)
         return formatted_result
