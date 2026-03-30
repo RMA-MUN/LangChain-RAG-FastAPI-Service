@@ -1,4 +1,4 @@
-# 🚀 智能对话服务 (v1.0.0)
+# 🚀 智能对话服务 (v1.1.0)
 
 ## 📋 目录
 
@@ -13,6 +13,7 @@
 - [部署指南](#部署指南)
 - [开发指南](#开发指南)
 - [故障排除](#故障排除)
+- [文档](#文档)
 - [联系方式](#联系方式)
 
 ## 项目简介
@@ -27,6 +28,68 @@
 - **文档管理** 📄：支持文档上传、处理和智能检索
 - **微服务架构** 🏗️：分离的用户服务和对话服务，易于扩展和维护
 - **高性能** ⚡：基于 FastAPI 和 ChromaDB，提供卓越的性能表现
+
+## 项目流程图
+
+```mermaid
+flowchart TD
+    subgraph "前端层"
+        A["用户界面
+        (Vue 3)"] -->|发送查询| B["API请求
+        (Axios)"]
+        C["会话管理
+        (Pinia)"] -->|状态管理| B
+        D["用户认证
+        (Vue Router)"] -->|路由守卫| B
+    end
+
+    subgraph "API路由层"
+        B -->|REST API| E["聊天路由
+        (FastAPI)"]
+        E -->|认证| F["认证中间件
+        (JWT)"]
+        E -->|限流| G["限流控制
+        (Redis)"]
+    end
+
+    subgraph "业务服务层"
+        E -->|代理查询| H["ChatService
+        (Python)"]
+        H -->|会话管理| I["SessionManager
+        (MySQL)"]
+        H -->|RAG检索| J["RagService
+        (LangChain)"]
+        H -->|向量存储| K["VectorStoreService
+        (ChromaDB)"]
+        H -->|智能代理| L["Agent
+        (LangChain)"]
+        H -->|文档重排序| M["ReorderService
+        (Hugging Face)"]
+    end
+
+    subgraph "数据存储层"
+        I -->|存储会话| N["MySQL数据库"]
+        K -->|向量存储| O["ChromaDB向量库"]
+        K -->|文件存储| P["文件系统"]
+        G -->|缓存| Q["Redis缓存"]
+    end
+
+    subgraph "AI模型服务"
+        L -->|LLM调用| R["DashScope API
+        (Qwen3-Max)"]
+        J -->|嵌入模型| S["文本嵌入
+        (text-embedding-v4)"]
+        M -->|重排序模型| T["Qwen3-Reranker-0.6B
+        (PyTorch/Sentence-Transformers)"]
+    end
+
+    subgraph "用户服务"
+        U["Django用户服务"] -->|认证授权| F
+        U -->|用户管理| V["MySQL用户数据库"]
+    end
+```
+
+
 
 ## 项目演示
 
@@ -98,7 +161,14 @@ DB_NAME=chatbot
 
 # 安全配置
 SECRET_KEY=your_secret_key
+
+# 重排序模型配置（可选）
+RERANKER_MODEL_PATH=D:\Hugging_Face\models\Qwen3-Reranker-0.6B
 ```
+
+### Hugging Face 模型配置
+
+详细的模型下载和配置说明请参考：[Hugging Face 模型配置](./docs/huggingface_model.md)
 
 #### 模型配置
 修改 `backend/app/config/rag.yaml` 文件：
@@ -172,6 +242,9 @@ python manage.py runserver
 - **MySQL** 🗄️：关系型数据库，用于存储用户数据和会话历史
 - **Redis** ⚡：缓存数据库，用于提高系统性能
 - **DashScope API** 🔑：提供大语言模型和嵌入模型服务
+- **Hugging Face** 🤗：提供预训练模型和模型下载服务
+- **PyTorch** 🧠：深度学习框架，用于模型推理
+- **Sentence-Transformers** 📝：句子嵌入和语义匹配库
 
 ### 前端技术
 - **Vue 3** 🖼️：现代化前端框架
@@ -270,21 +343,7 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 
 ## 部署指南
 
-### 生产环境部署
-
-#### 后端部署
-- 使用 Gunicorn 作为 WSGI 服务器
-- 配置 Nginx 作为反向代理
-- 设置环境变量和数据库连接
-
-#### 前端部署
-- 构建前端静态文件：`npm run build`
-- 将构建产物部署到 Nginx 或其他静态文件服务器
-- 配置 CORS 和反向代理
-
-#### 数据库配置
-- 生产环境建议使用 MySQL 或 PostgreSQL
-- 配置数据库连接字符串和访问权限
+详细的部署说明请参考：[部署指南](./docs/deployment.md)
 
 ## 开发指南
 
@@ -307,21 +366,17 @@ separators: ["\n\n", "\n", "。", "！", "？", "!", "?", " ", ""]
 
 ## 故障排除
 
-### 常见问题
-1. **API Key 错误**
-   - 检查 `.env` 文件中的 DASHSCOPE_API_KEY 是否正确
-   - 确保 API Key 没有过期或权限不足
-2. **数据库连接失败**
-   - 检查数据库配置是否正确
-   - 确保数据库服务正在运行
-   - 验证数据库用户权限
-3. **向量数据库问题**
-   - 检查 `data/chromadb` 目录是否存在且有写入权限
-   - 确保文件权限正确
-4. **前端访问后端 API 失败**
-   - 检查 CORS 配置是否正确
-   - 确保后端服务正在运行
-   - 验证网络连接和防火墙设置
+详细的故障排除指南请参考：[故障排除](./docs/troubleshooting.md)
+
+## 文档
+
+项目文档位于 `docs/` 目录：
+
+- **[Hugging Face 模型配置](./docs/huggingface_model.md)**：详细的模型下载和配置说明
+- **[部署指南](./docs/deployment.md)**：生产环境部署详细步骤
+- **[故障排除](./docs/troubleshooting.md)**：常见问题和解决方案
+- **[API 文档](./backend/api.md)**：后端 API 接口文档
+- **[用户服务 API](./DjangoUserService/api.md)**：用户服务 API 文档
 
 ## 联系方式
 
