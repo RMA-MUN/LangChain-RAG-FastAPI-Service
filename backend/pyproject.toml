@@ -31,6 +31,12 @@ dependencies = [
     "pypdf>=6.9.2",
     "python-magic>=0.4.27",
     "python-magic-bin>=0.4.14",
+    "sentence-transformers>=5.3.0",
+    "modelscope>=1.35.3",
+    "accelerate>=1.13.0",
+    "torch>=2.11.0",
+    "torchvision>=0.26.0",
+    "torchaudio>=2.11.0",
 ]
 
 # 开发依赖
