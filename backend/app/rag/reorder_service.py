@@ -91,7 +91,8 @@ class ReorderService:
             pairs = [(query, doc) for doc in documents]
             
             # 使用模型进行批量预测（batch_size=1避免padding令牌报错）
-            scores = self.model.predict(pairs, batch_size=1)
+            model = await self.model
+            scores = model.predict(pairs, batch_size=1)
             
             # 构建结果列表
             scored_documents = []
