@@ -207,6 +207,7 @@ dependencies = [
     { name = "langchain-chroma" },
     { name = "langchain-community" },
     { name = "langchain-core" },
+    { name = "langchain-dashscope" },
     { name = "langchain-ollama" },
     { name = "langchain-text-splitters" },
     { name = "modelscope" },
@@ -251,6 +252,7 @@ requires-dist = [
     { name = "langchain-chroma", specifier = ">=1.1.0" },
     { name = "langchain-community", specifier = "~=0.4.1" },
     { name = "langchain-core", specifier = "~=1.2.17" },
+    { name = "langchain-dashscope", specifier = ">=0.1.8" },
     { name = "langchain-ollama", specifier = ">=1.0.1" },
     { name = "langchain-text-splitters", specifier = "~=1.1.1" },
     { name = "modelscope", specifier = ">=1.35.3" },
@@ -1334,6 +1336,19 @@ dependencies = [
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/db/41/6552a419fe549a79601e5a698d1d5ee2ca7fe93bb87fd624a16a8c1bdee3/langchain_core-1.2.20.tar.gz", hash = "sha256:c7ac8b976039b5832abb989fef058b88c270594ba331efc79e835df046e7dc44", size = 838330, upload-time = "2026-03-18T17:34:45.522Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/d9/06/08c88ddd4d6766de4e6c43111ae8f3025df383d2a4379cb938fc571b49d4/langchain_core-1.2.20-py3-none-any.whl", hash = "sha256:b65ff678f3c3dc1f1b4d03a3af5ee3b8d51f9be5181d74eb53c6c11cd9dd5e68", size = 504215, upload-time = "2026-03-18T17:34:44.087Z" },
+]
+
+[[package]]
+name = "langchain-dashscope"
+version = "0.1.8"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+dependencies = [
+    { name = "dashscope" },
+    { name = "tiktoken" },
+]
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/1b/b4/3df910534f7cc3741317566f8814e98444a219319e519861bd2c59a9f1af/langchain_dashscope-0.1.8.tar.gz", hash = "sha256:c46893f3aa7ff5995efbf5e228d84d7ce58bd471b0ebffa27232eb8ae46c7336", size = 7580, upload-time = "2024-07-17T08:24:51.103Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/05/72/31be31ec8c20308a92b0048dccdb930bfa3f4bf8dd85cae91369923e1f5d/langchain_dashscope-0.1.8-py3-none-any.whl", hash = "sha256:855734232b51613a2b86bed6c20744e468aaf99efc471e1ae9d58d06e57334aa", size = 9029, upload-time = "2024-07-17T08:24:48.916Z" },
 ]
 
 [[package]]
@@ -3415,6 +3430,25 @@ source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
 sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/b7/4d/08c89e34946fce2aec4fbb45c9016efd5f4d7f24af8e5d93296e935631d8/threadpoolctl-3.6.0.tar.gz", hash = "sha256:8ab8b4aa3491d812b623328249fab5302a68d2d71745c8a4c719a2fcaba9f44e", size = 21274, upload-time = "2025-03-13T13:49:23.031Z" }
 wheels = [
     { url = "https://pypi.tuna.tsinghua.edu.cn/packages/32/d5/f9a850d79b0851d1d4ef6456097579a9005b31fea68726a4ae5f2d82ddd9/threadpoolctl-3.6.0-py3-none-any.whl", hash = "sha256:43a0b8fd5a2928500110039e43a5eed8480b918967083ea48dc3ab9f13c4a7fb", size = 18638, upload-time = "2025-03-13T13:49:21.846Z" },
+]
+
+[[package]]
+name = "tiktoken"
+version = "0.7.0"
+source = { registry = "https://pypi.tuna.tsinghua.edu.cn/simple" }
+dependencies = [
+    { name = "regex" },
+    { name = "requests" },
+]
+sdist = { url = "https://pypi.tuna.tsinghua.edu.cn/packages/c4/4a/abaec53e93e3ef37224a4dd9e2fc6bb871e7a538c2b6b9d2a6397271daf4/tiktoken-0.7.0.tar.gz", hash = "sha256:1077266e949c24e0291f6c350433c6f0971365ece2b173a23bc3b9f9defef6b6", size = 33437, upload-time = "2024-05-13T18:03:28.793Z" }
+wheels = [
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/1d/46/4cdda4186ce900608f522da34acf442363346688c71b938a90a52d7b84cc/tiktoken-0.7.0-cp312-cp312-macosx_10_9_x86_64.whl", hash = "sha256:71c55d066388c55a9c00f61d2c456a6086673ab7dec22dd739c23f77195b1908", size = 960446, upload-time = "2024-05-13T18:02:54.409Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/b6/30/09ced367d280072d7a3e21f34263dfbbf6378661e7a0f6414e7c18971083/tiktoken-0.7.0-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:09ed925bccaa8043e34c519fbb2f99110bd07c6fd67714793c21ac298e449410", size = 906652, upload-time = "2024-05-13T18:02:56.25Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/e6/7b/c949e4954441a879a67626963dff69096e3c774758b9f2bb0853f7b4e1e7/tiktoken-0.7.0-cp312-cp312-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:03c6c40ff1db0f48a7b4d2dafeae73a5607aacb472fa11f125e7baf9dce73704", size = 1047904, upload-time = "2024-05-13T18:02:57.707Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/50/81/1842a22f15586072280364c2ab1e40835adaf64e42fe80e52aff921ee021/tiktoken-0.7.0-cp312-cp312-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:d20b5c6af30e621b4aca094ee61777a44118f52d886dbe4f02b70dfe05c15350", size = 1079836, upload-time = "2024-05-13T18:02:59.009Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/6d/87/51a133a3d5307cf7ae3754249b0faaa91d3414b85c3d36f80b54d6817aa6/tiktoken-0.7.0-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:d427614c3e074004efa2f2411e16c826f9df427d3c70a54725cae860f09e4bf4", size = 1092472, upload-time = "2024-05-13T18:03:00.597Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/a5/1f/c93517dc6d3b2c9e988b8e24f87a8b2d4a4ab28920a3a3f3ea338397ae0c/tiktoken-0.7.0-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:8c46d7af7b8c6987fac9b9f61041b452afe92eb087d29c9ce54951280f899a97", size = 1141881, upload-time = "2024-05-13T18:03:02.743Z" },
+    { url = "https://pypi.tuna.tsinghua.edu.cn/packages/bf/4b/48ca098cb580c099b5058bf62c4cb5e90ca6130fa43ef4df27088536245b/tiktoken-0.7.0-cp312-cp312-win_amd64.whl", hash = "sha256:0bc603c30b9e371e7c4c7935aba02af5994a909fc3c0fe66e7004070858d3f8f", size = 799281, upload-time = "2024-05-13T18:03:04.036Z" },
 ]
 
 [[package]]
