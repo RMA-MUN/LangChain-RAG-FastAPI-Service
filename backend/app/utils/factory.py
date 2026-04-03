@@ -3,9 +3,10 @@ from typing import Optional
 import os
 from dotenv import load_dotenv
 
-from langchain_ollama import ChatOllama, OllamaEmbeddings
+from langchain_community.chat_models.tongyi import ChatTongyi
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
+from langchain_ollama import OllamaEmbeddings
 
 from app.utils.config import rag_config
 
@@ -26,15 +27,11 @@ class ChatModelFactory(BaseModelFactory):
     """聊天模型工厂"""
     def generator(self) -> Optional[Embeddings | BaseChatModel]:
         """生成模型"""
-        return ChatOllama(
+        return ChatTongyi(
             model=rag_config['chat_model_name'],
-            base_url="http://localhost:11434",
-            temperature=0.3, # 控制输出的随机性，0-1之间，0越确定，1越随机
-            num_predict=200, # 最大生成的token数
-            num_thread=4,    # 并发线程数(CPU线程数)
-            top_k=40,        # 考虑的token数，词汇选择范围，
-            top_p=0.9,       # 考虑的token概率，控制生成的token分布，0-1之间，0越确定，1越随机
-            keep_alive="5m"  # 保持连接时间，单位：分钟
+            api_key=os.getenv("ALIYUN_ACCESS_KEY_SECRET"),
+            streaming=True,
+            top_p=0.7,
         )
 
 
