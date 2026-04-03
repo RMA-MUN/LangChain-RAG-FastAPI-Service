@@ -18,6 +18,7 @@ class RagService:
         self.prompt_template = PromptTemplate.from_template(self.prompt_text)
         self.chat_model = chat_model
         self.chain = self._init_chain()
+        self.hyde_prompt_template = PromptTemplate.from_template("基于以下问题，生成一个详细的假设性回答，我会根据你的这个假设性回答在向量数据库里检索文档：\n\n问题：{query}\n\n假设性回答：")
 
     async def initialize_retriever(self):
         """
@@ -36,18 +37,44 @@ class RagService:
         )
         return chain
 
+    async def generate_hypothetical_document(self, query: str) -> str:
+        """
+        使用HyDE技术生成假设性文档
+        :param query: 用户查询
+        :return: 假设性文档内容
+        """
+        try:
+            hyde_chain = (
+                self.hyde_prompt_template
+                | self.chat_model
+                | StrOutputParser()
+            )
+            hypothetical_doc = await hyde_chain.ainvoke({"query": query})
+            logger.info(f"【HyDE】生成的假设性文档:\n{hypothetical_doc}")
+            return hypothetical_doc
+        except Exception as e:
+            logger.error(f"【HyDE】生成假设性文档失败: {e}")
+            return query
+
     async def retrieve_document(self, query: str) -> list:
-        """从向量数据库里检索文档"""
+        """使用HyDE技术 从向量数据库里检索文档"""
         try:
             # 确保检索器已初始化
             if self.retriever is None:
                 await self.initialize_retriever()
-            # 使用异步方式调用retriever
-            documents = await self.retriever.ainvoke(query)
-            logger.info(f"【RAG】检索到 {len(documents)} 个相关文档")
+            
+            # 使用HyDE技术生成假设性文档
+            logger.info(f"【HyDE】开始处理查询: {query}")
+            hypothetical_doc = await self.generate_hypothetical_document(query)
+            
+            # 使用假设性文档进行检索
+            logger.info(f"【HyDE】使用假设性文档进行检索")
+            documents = await self.retriever.ainvoke(hypothetical_doc)
+            logger.info(f"【HyDE】检索到 {len(documents)} 个相关文档")
+            
             return documents
         except Exception as e:
-            logger.error(f"【RAG】检索文档失败: {e}")
+            logger.error(f"【HyDE】检索文档失败: {e}")
             return []
 
     async def reorder_documents(self, query: str, documents: list) -> list:
