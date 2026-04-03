@@ -4,7 +4,7 @@ import asyncio
 from typing import List, Optional, AsyncGenerator
 
 from langchain_classic.agents import AgentExecutor, create_tool_calling_agent
-from langchain_ollama import ChatOllama
+from langchain_community.chat_models import ChatTongyi
 from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import BaseTool
@@ -28,7 +28,7 @@ class AgentFactory:
 
     def __init__(
             self,
-            model: str = "qwen3.5:0.8b",
+            model: str = "qwen3-max",
             api_key: Optional[str] = None,
             default_tools: Optional[List[BaseTool]] = None,
             default_middleware: Optional[List] = None,
@@ -55,6 +55,7 @@ class AgentFactory:
             get_weather_tools,
             what_time_is_now,
             get_user_info_tools,
+            reorder_documents_tools,
         ]
 
     def _get_default_middleware(self) -> List:
@@ -66,13 +67,17 @@ class AgentFactory:
         """获取默认系统提示词"""
         return load_prompt('main_prompt')
 
-    def _create_chat_model(self, custom_model: Optional[str] = None) -> ChatOllama:
+    def _create_chat_model(self, custom_model: Optional[str] = None):
         """内部方法：创建聊天模型实例"""
-        return ChatOllama(
+        # 使用阿里云DashScope
+        api_key = os.getenv("ALIYUN_ACCESS_KEY_SECRET")
+        base_url = os.getenv("ALIYUN_BASE_URL")
+        
+        return ChatTongyi(
             model=custom_model or self.model,
-            base_url="http://localhost:11434",
-            temperature=0.7,
-            streaming=True  # 开启流式输出
+            api_key=api_key,
+            streaming=True,
+            top_p=0.7,
         )
 
     def _create_prompt(self, custom_system_prompt: Optional[str] = None) -> ChatPromptTemplate:
@@ -215,9 +220,6 @@ async def get_agent_stream_response(
         history = await sm.session_manager.get_history(session_id, user_id)
         logger.info(f"【Agent流式响应】获取会话历史成功，历史记录数: {len(history)}")
 
-        # 从工厂获取全新的 Executor 实例
-        agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, **kwargs)
-
         # 构建聊天历史
         chat_history: List[BaseMessage] = []
         if history:
@@ -226,14 +228,17 @@ async def get_agent_stream_response(
                 chat_history.append(HumanMessage(content=user_msg))
                 chat_history.append(AIMessage(content=assistant_msg))
 
-        # 流式执行Agent
+        # 从工厂获取全新的 Executor 实例
+        agent_executor = agent_factory.create_agent_executor(custom_tools=custom_tools, **kwargs)
+
+        # 流式执行
         full_response = []
         steps = []
 
         # 先发送初始响应
         yield f"data: {json.dumps({'type': 'response', 'content': '', 'session_id': session_id}, ensure_ascii=False)}\n\n"
 
-        # 流式处理Agent输出
+        # 使用agent_executor的astream方法获取流式响应
         async for chunk in agent_executor.astream({
             "input": query,
             "chat_history": chat_history,
@@ -244,7 +249,8 @@ async def get_agent_stream_response(
                 full_response.append(chunk_content)
                 # 实时发送输出
                 yield f"data: {json.dumps({'type': 'response', 'content': chunk_content}, ensure_ascii=False)}\n\n"
-                await asyncio.sleep(0.1)
+                logger.info(f"【debug】当前响应: {chunk_content}")
+                await asyncio.sleep(0.05)  # 减少延迟，提高响应速度
             elif "intermediate_steps" in chunk:
                 for action, observation in chunk["intermediate_steps"]:
                     # 记录日志
@@ -253,16 +259,12 @@ async def get_agent_stream_response(
                     logger.info(f"📥 [工具输入] {action.tool_input}")
                     logger.info(f"📤 [工具结果] {observation}\n")
                     # 收集步骤
-                    step = {
+                    steps.append({
                         "thought": action.log,
                         "tool": action.tool,
                         "tool_input": action.tool_input,
                         "tool_output": observation
-                    }
-                    steps.append(step)
-                    # 发送步骤信息
-                    yield f"data: {json.dumps({'type': 'step', 'content': step}, ensure_ascii=False)}\n\n"
-                    await asyncio.sleep(0.1)
+                    })
 
         response = "".join(full_response) if full_response else "抱歉，我无法理解您的请求。"
 
@@ -278,4 +280,5 @@ async def get_agent_stream_response(
         # 发送错误信息
         error_message = f"错误: {str(e)}"
         yield f"data: {json.dumps({'type': 'error', 'content': error_message, 'session_id': session_id}, ensure_ascii=False)}\n\n"
+
         yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
