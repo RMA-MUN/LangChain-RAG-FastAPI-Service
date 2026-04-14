@@ -3,7 +3,7 @@ persist_directory: data/chromadb
 k: 5
 data_path: data
 md5_hex_store: data/md5_hex_store/md5_hex_store.txt
-allow_knowledge_file_types: ["txt", "pdf"]
+allow_knowledge_file_types: ["txt", "pdf", "md", "pptx", "docx"]
 
 chunk_size: 200
 chunk_overlap: 20

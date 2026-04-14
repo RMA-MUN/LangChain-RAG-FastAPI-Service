@@ -3,8 +3,7 @@ from langchain_core.documents import Document
 
 from app.core.logger_handler import logger
 from app.utils.path_tool import get_abstract_path
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
-
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, UnstructuredMarkdownLoader, UnstructuredPowerPointLoader
 
 async def get_file_md5_hex(file_path: str) -> str:
     """获取文件的md5值"""
@@ -92,3 +91,46 @@ async def txt_loader(file_path: str) -> list[Document]:
             continue
     # 所有编码都失败，返回空列表
     return []
+
+async def word_loader(file_path: str) -> list[Document]:
+    """
+    加载WORD文件内容
+    :param file_path: WORD文件路径
+    :return: WORD文件内容
+    """
+    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    try:
+        loader = TextLoader(abs_file_path, encoding='utf-8')
+        return await asyncio.to_thread(loader.load)
+    except Exception as e:
+        logger.error(f"【WORD文件加载】加载文件 {abs_file_path} 时出错: {e}")
+        return []
+
+async def markdown_loader(file_path: str) -> list[Document]:
+    """
+    加载Markdown文件内容
+    :param file_path: Markdown文件路径
+    :return: Markdown文件内容
+    """
+    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    try:
+        loader = UnstructuredMarkdownLoader(abs_file_path, mode="single")
+        return await asyncio.to_thread(loader.load)
+    except Exception as e:
+        logger.error(f"【Markdown文件加载】加载文件 {abs_file_path} 时出错: {e}")
+        return []
+
+
+async def ppt_loader(file_path: str) -> list[Document]:
+    """
+    加载PPT/PPTX文件内容
+    :param file_path: PPT文件路径
+    :return: PPT文件内容
+    """
+    abs_file_path = get_abstract_path(file_path) if not os.path.isabs(file_path) else file_path
+    try:
+        loader = UnstructuredPowerPointLoader(abs_file_path, mode="single")
+        return await asyncio.to_thread(loader.load)
+    except Exception as e:
+        logger.error(f"【PPT文件加载】加载文件 {abs_file_path} 时出错: {e}")
+        return []

@@ -1,6 +1,7 @@
 from typing import List, Optional, Tuple, Dict, Any
 import uuid
 import magic
+import os
 
 from fastapi import HTTPException, UploadFile
 
@@ -81,10 +82,14 @@ class ChatService:
         mime = magic.Magic(mime=True)
         file_type = mime.from_buffer(content)
         
-        # 检查文件类型是否允许
-        allowed_mime_types = {'application/pdf', 'text/plain'}
-        if file_type not in allowed_mime_types:
-            raise HTTPException(status_code=400, detail=f"文件类型不支持，仅支持PDF和TXT文件。检测到的文件类型: {file_type}")
+        # 同时检查文件扩展名
+        file_extension = os.path.splitext(file.filename)[1].lower()
+        allowed_extensions = {'.pdf', '.txt', '.md', '.pptx', '.docx'}
+        
+        # 检查文件类型是否允许（MIME类型或扩展名任一符合即可）
+        allowed_mime_types = {'application/pdf', 'text/plain', 'text/markdown', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
+        if file_type not in allowed_mime_types and file_extension not in allowed_extensions:
+            raise HTTPException(status_code=400, detail=f"文件类型不支持，目前支持PDF、TXT、Markdown、PPTX、DOCX文件类型。检测到的文件类型: {file_type}，扩展名: {file_extension}")
 
         # 处理文件并存储到向量数据库
         await store.get_document(files=[file], user_id=user_id)
@@ -98,7 +103,7 @@ class ChatService:
 
         # 检查文件类型和大小
         total_size = 0
-        allowed_mime_types = {'application/pdf', 'text/plain'}
+        allowed_mime_types = {'application/pdf', 'text/plain', 'text/markdown', 'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'}
         mime = magic.Magic(mime=True)
         
         for file in files:
@@ -107,8 +112,11 @@ class ChatService:
             
             # 检测文件类型
             file_type = mime.from_buffer(content)
-            if file_type not in allowed_mime_types:
-                raise HTTPException(status_code=400, detail=f"文件 {file.filename} 类型不支持，仅支持PDF和TXT文件。检测到的文件类型: {file_type}")
+            # 同时检查文件扩展名
+            file_extension = os.path.splitext(file.filename)[1].lower()
+            allowed_extensions = {'.pdf', '.txt', '.md', '.pptx', '.docx'}
+            if file_type not in allowed_mime_types and file_extension not in allowed_extensions:
+                raise HTTPException(status_code=400, detail=f"文件 {file.filename} 类型不支持，目前支持PDF、TXT、Markdown、PPTX、DOCX文件类型。检测到的文件类型: {file_type}，扩展名: {file_extension}")
             
             # 重置文件指针以便后续处理
             await file.seek(0)
