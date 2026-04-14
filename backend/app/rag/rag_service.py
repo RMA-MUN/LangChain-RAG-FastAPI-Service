@@ -1,6 +1,3 @@
-import asyncio
-import concurrent.futures
-
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import PromptTemplate
 
@@ -21,12 +18,13 @@ class RagService:
         self.chain = self._init_chain()
         self.hyde_prompt_template = PromptTemplate.from_template("基于以下问题，生成一个详细的假设性回答，我会根据你的这个假设性回答在向量数据库里检索文档：\n\n问题：{query}\n\n假设性回答：")
 
-    async def initialize_retriever(self):
+    async def initialize_retriever(self, query: str = None):
         """
         初始化检索器
+        :param query: 查询语句，用于动态调整权重
         """
         if self.retriever is None:
-            self.retriever = await self.vector_store.get_retriever()
+            self.retriever = await self.vector_store.get_retriever(query)
 
 
     def _init_chain(self):
@@ -60,9 +58,9 @@ class RagService:
     async def retrieve_document(self, query: str) -> list:
         """使用HyDE技术 从向量数据库里检索文档"""
         try:
-            # 确保检索器已初始化
+            # 确保检索器已初始化，传递query参数
             if self.retriever is None:
-                await self.initialize_retriever()
+                await self.initialize_retriever(query)
             
             # 使用HyDE技术生成假设性文档
             logger.info(f"【HyDE】开始处理查询: {query}")
