@@ -1,3 +1,5 @@
+import asyncio
+import time
 from typing import List, Optional, Tuple, Dict, Any
 import uuid
 import magic
@@ -124,9 +126,21 @@ class ChatService:
         if total_size > max_file_folder_size:
             raise HTTPException(status_code=400, detail="文件总大小不能超过200MB")
 
-        await store.get_document(files=files, user_id=user_id)
+        start_time = time.time()
+        # 定义处理单个文件的函数
+        async def process_file(file):
+            # 为每个文件创建一个新的VectorStoreService实例
+            file_store = VectorStoreService()
+            await file_store.get_document(files=[file], user_id=user_id)
+            return file.filename
+        
+        # 使用asyncio.gather并行处理所有文件
+        results = await asyncio.gather(*[process_file(file) for file in files])
 
-        return [file.filename for file in files]
+        end_time = time.time()
+        logger.info(f"【添加向量】耗时: {end_time - start_time:.2f}秒，处理文件数: {len(results)}")
+
+        return results
 
     async def clean_user_upload(self, user_id: str) -> None:
         """处理删除用户上传的所有向量逻辑"""
