@@ -146,7 +146,7 @@ pnpm install
 ### 环境配置
 
 #### 创建环境变量文件
-在 `backend` 目录下创建 `.env` 文件：
+在 `backend` 目录下创建 `.env` 文件，参考.env.example文件填写个人配置：
 
 ```env
 # DashScope API Key (必填)
@@ -164,6 +164,11 @@ SECRET_KEY=your_secret_key
 
 # 重排序模型配置（可选）
 RERANKER_MODEL_PATH=D:\Hugging_Face\models\Qwen3-Reranker-0.6B
+
+# LangSmith_API_KEY，自行前往 https://smith.langchain.com/ 官网注册获取api key
+LANGCHAIN_TRACING_V2=true
+LANGCHAIN_API_KEY=your_langsmith_api_key
+LANGCHAIN_PROJECT=my-fastapi-langchain-project
 ```
 
 ### Hugging Face 模型配置
