@@ -9,6 +9,7 @@
 import pytest
 from langchain_core.language_models.fake_chat_models import FakeMessagesListChatModel
 from langchain_core.messages import AIMessage
+from langgraph.checkpoint.memory import MemorySaver
 
 from app.agent import agent as agent_module
 from app.agent.agent import get_agent_response
@@ -59,6 +60,8 @@ async def test_real_agent_calls_search_rag_once(monkeypatch):
         AIMessage(content="基于补充证据回答完成。"),
     ])
     monkeypatch.setattr(agent_module.agent_factory, "_create_chat_model", lambda custom_model=None: model)
+    # 真图 + MemorySaver：不碰生产 MySQL saver（controller 授权的超 brief 测试改动）。
+    monkeypatch.setattr(agent_module, "get_checkpointer", lambda: MemorySaver())
 
     result = await get_agent_response("原始问题", user_id="u1")
     assert result["response"] == "基于补充证据回答完成。"
@@ -90,6 +93,8 @@ async def test_real_agent_stops_after_covered_hint(monkeypatch):
             AIMessage(content="好的，停止检索。"),
         ])
         monkeypatch.setattr(agent_module.agent_factory, "_create_chat_model", lambda custom_model=None: model)
+        # 真图 + MemorySaver：不碰生产 MySQL saver（controller 授权的超 brief 测试改动）。
+        monkeypatch.setattr(agent_module, "get_checkpointer", lambda: MemorySaver())
         result = await get_agent_response("原问题", user_id="u1")
         assert calls == []
         assert any(step["tool"] == "search_rag" for step in result["steps"])
