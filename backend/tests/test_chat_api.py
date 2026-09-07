@@ -26,6 +26,9 @@ class FakeChatService:
     async def handle_get_session(self, session_id, user_id):
         return [("你好", "你好呀")]
 
+    async def handle_get_pending_run_id(self, session_id, user_id):
+        return None
+
     async def handle_delete_session(self, session_id, user_id):
         self.calls.append(("delete", session_id, user_id))
 
@@ -64,6 +67,34 @@ async def test_get_session(client, monkeypatch):
     body = resp.json()
     assert body["data"]["session_id"] == "abc"
     assert body["data"]["history"] == [["你好", "你好呀"]]
+    assert body["data"]["pending_run_id"] is None
+
+
+async def test_get_session_includes_pending_run_id(client, monkeypatch):
+    """会话详情响应携带 pending_run_id（供前端恢复审批卡）。"""
+    from main import app
+
+    import app.router.chat as chat_module
+
+    class FakeService:
+        def __init__(self):
+            self.calls = []
+
+        async def handle_get_session(self, session_id, user_id):
+            return [("q", "a")]
+
+        async def handle_get_pending_run_id(self, session_id, user_id):
+            self.calls.append((session_id, user_id))
+            return "run-9"
+
+    # 说明：brief 原文用 monkeypatch.setattr("app.router.chat.get_router_service", ...)
+    # 但 get_session 的 Depends 在装饰时已捕获原函数对象，setattr 无法生效；
+    # 此处沿用本文件既有 dependency_overrides 模式，断言意图与 brief 一致。
+    service = FakeService()
+    app.dependency_overrides[chat_module.get_router_service] = lambda: service
+    resp = await client.get("/chat/session/abc", headers={"Authorization": "Bearer x"})
+    assert resp.status_code == 200
+    assert resp.json()["data"]["pending_run_id"] == "run-9"
 
 
 async def test_delete_session(client, monkeypatch):
@@ -279,3 +310,41 @@ async def test_agent_query_stream_emits_thinking_before_rag_finishes(monkeypatch
 
     rag_finished.set()
     assert await asyncio.wait_for(_next_stream_chunk(response), timeout=0.2) == "agent response"
+
+
+async def test_resume_endpoint_returns_error_when_no_pending(client, monkeypatch):
+    from app.router import chat as chat_module
+
+    async def fake_resume(session_id, user_id, run_id, decisions, **kwargs):
+        yield f"data: {json.dumps({'type': 'error', 'content': 'RESUME_MISMATCH'}, ensure_ascii=False)}\n\n"
+        yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+
+    monkeypatch.setattr(chat_module, "get_agent_resume_stream_response", fake_resume)
+    resp = await client.post("/chat/agent/resume", json={"session_id": "none", "decisions": [{"type": "approve"}]})
+    assert resp.status_code == 200
+    body = resp.text
+    assert "RESUME_MISMATCH" in body
+
+
+async def test_pending_endpoint_with_pending(client, monkeypatch):
+    from app.router import chat as chat_module
+
+    # 说明：brief 原文用同步 lambda，但路由以 await 调用两者，
+    # 同步替身会被 await 抛 TypeError；此处改用异步替身，断言意图与 brief 一致。
+    async def fake_get_pending_run_id(session_id, user_id):
+        return "run-7"
+
+    async def fake_read_pending_interrupt(run_id):
+        return {"run_id": "run-7", "payload": {"action_requests": []}, "query": "q"}
+
+    monkeypatch.setattr(
+        chat_module.sm.session_manager, "get_pending_run_id",
+        fake_get_pending_run_id,
+    )
+    monkeypatch.setattr(
+        chat_module, "read_pending_interrupt",
+        fake_read_pending_interrupt,
+    )
+    resp = await client.get("/chat/session/abc/pending", headers={"Authorization": "Bearer x"})
+    assert resp.status_code == 200
+    assert resp.json()["data"]["run_id"] == "run-7"

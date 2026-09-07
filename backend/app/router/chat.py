@@ -10,13 +10,22 @@ import uuid
 from fastapi import Depends
 from fastapi.responses import StreamingResponse
 from fastapi.routing import APIRouter
+from pydantic import BaseModel, Field
 
-from app.agent.agent import get_agent_stream_response
+from app.agent.agent import (
+    get_agent_resume_stream_response,
+    get_agent_stream_response,
+    read_approval_snapshot,
+    read_pending_interrupt,
+)
 from app.agent.agent_rag_tool import build_pre_searched_queries
+from app.agent.checkpoint.mysql_saver import MySQLCheckpointSaver
+from app.core.logger_handler import logger
 from app.core.rate_limit import rate_limit
 from app.core.success_response import success_response
 from app.rag.agentic_rag.service import AgenticRagService
 from app.schemas.models import QueryRequest, ReorderRequest, ReorderResponse, SessionResponse
+from app.services import session_manager as sm
 from app.utils.auth_utils import get_current_user_id
 
 chat_router = APIRouter(prefix="/chat", tags=["chat"])
@@ -103,16 +112,82 @@ async def query_stream(
     )
 
 
+class ResumeRequest(BaseModel):
+    """恢复审批请求模型"""
+    session_id: str
+    decisions: list[dict] = Field(default_factory=list)
+
+
+@chat_router.post("/agent/resume")
+async def resume_agent(
+        request: ResumeRequest,
+        user_id: str = Depends(get_current_user_id),
+        _: None = Depends(rate_limit(limit=10, window=60)),
+):
+    """恢复被中断的 Agent run（decisions: [{"type": "approve"|"reject", ...}]）"""
+    # run_id 从会话 pending_run_id 取（更稳，不信任客户端）
+    pending_run_id = await sm.session_manager.get_pending_run_id(request.session_id, user_id)
+    if not pending_run_id:
+        async def stream_error():
+            yield f"data: {json.dumps({'type': 'error', 'content': 'RESUME_MISMATCH'}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"
+        return StreamingResponse(stream_error(), media_type="text/event-stream")
+
+    async def stream_resume():
+        async for chunk in get_agent_resume_stream_response(
+            session_id=request.session_id, user_id=user_id,
+            run_id=pending_run_id, decisions=request.decisions,
+        ):
+            yield chunk
+
+    return StreamingResponse(
+        stream_resume(),
+        media_type="text/event-stream",
+        headers={"Cache-Control": "no-cache", "Connection": "keep-alive"},
+    )
+
+
+@chat_router.get("/session/{session_id}/pending")
+async def get_pending(session_id: str, user_id: str = Depends(get_current_user_id)):
+    """返回待审批中断元数据（含原始 query）；无 pending 返回 null。"""
+    pending_run_id = await sm.session_manager.get_pending_run_id(session_id, user_id)
+    if not pending_run_id:
+        return success_response(data=None)
+    info = await read_pending_interrupt(pending_run_id)
+    return success_response(data=info)
+
+
+@chat_router.get("/session/{session_id}/approval")
+async def get_approval(session_id: str, user_id: str = Depends(get_current_user_id)):
+    """返回该会话上次审批快照（含已审批完成，active=False）；从无审批返回 null。"""
+    pending_run_id = await sm.session_manager.get_pending_run_id(session_id, user_id)
+    if not pending_run_id:
+        return success_response(data=None)
+    info = await read_approval_snapshot(pending_run_id)
+    return success_response(data=info)
+
+
 @chat_router.get("/session/{session_id}", response_model=SessionResponse)
 async def get_session(session_id: str, user_id: str = Depends(get_current_user_id), router_service=Depends(get_router_service)):
     """获取会话信息，使用user_id验证"""
     history = await router_service.handle_get_session(session_id, user_id)
-    return success_response(data=SessionResponse(session_id=session_id, history=history))
+    pending_run_id = await router_service.handle_get_pending_run_id(session_id, user_id)
+    return success_response(data=SessionResponse(
+        session_id=session_id, history=history, pending_run_id=pending_run_id,
+    ))
 
 
 @chat_router.delete("/session/{session_id}")
 async def delete_session(session_id: str, user_id: str = Depends(get_current_user_id), router_service=Depends(get_router_service)):
-    """删除会话"""
+    """删除会话（若有待审批 run 一并清理 checkpoint thread）"""
+    from app.agent.agent import get_checkpointer
+
+    pending_run_id = await sm.session_manager.get_pending_run_id(session_id, user_id)
+    if pending_run_id:
+        try:
+            await get_checkpointer().adelete_thread(pending_run_id)
+        except Exception as e:
+            logger.warning(f"清理 pending thread 失败（可忽略）: {e}")
     await router_service.handle_delete_session(session_id, user_id)
     return success_response(message=f"Session {session_id} deleted successfully")
 
