@@ -1,6 +1,7 @@
 import asyncio
 import inspect
 import json
+import time
 import uuid
 from collections.abc import AsyncGenerator
 
@@ -494,6 +495,8 @@ async def _emit_agent_events(agent, inputs, config, thinking_queue, full_respons
         await thinking_queue.put({"type": "response", "content": content})
 
     try:
+        t_first = time.perf_counter()
+        first_token_ms: float | None = None
         async for event in agent.astream_events(inputs, config=config, version="v2"):
             event_type = event.get("event")
             event_data = event.get("data") or {}
@@ -505,10 +508,16 @@ async def _emit_agent_events(agent, inputs, config, thinking_queue, full_respons
                 if content is None and isinstance(chunk, dict):
                     content = chunk.get("content")
                 if isinstance(content, str):
+                    if first_token_ms is None and content:
+                        first_token_ms = (time.perf_counter() - t_first) * 1000
+                        logger.info(f"【Agent耗时】首token first_token={first_token_ms:.0f}ms")
                     await emit_response(content)
                 elif isinstance(content, list):
                     text = "".join(item.get("text", "")
                                    for item in content if isinstance(item, dict))
+                    if first_token_ms is None and text:
+                        first_token_ms = (time.perf_counter() - t_first) * 1000
+                        logger.info(f"【Agent耗时】首token first_token={first_token_ms:.0f}ms")
                     await emit_response(text)
             elif event_type == "on_tool_start":
                 tool = event.get("name", "unknown_tool")
@@ -580,9 +589,12 @@ async def get_agent_stream_response(
                     load_prompt("rag_context_prompt").replace("{context}", rag_context)
                     if rag_context else agent_factory.default_system_prompt
                 )
+                t_create = time.perf_counter()
                 agent = agent_factory.create_agent(
                     custom_tools=custom_tools, custom_system_prompt=system_prompt, **kwargs
                 )
+                create_ms = (time.perf_counter() - t_create) * 1000
+                logger.info(f"【Agent耗时】准备阶段 history条数={len(history)} create_agent={create_ms:.0f}ms rag_context_chars={len(rag_context)}")
                 full_response = []
                 inputs = {"messages": [*chat_history, HumanMessage(content=query)]}
                 config = _thread_config(run_id)

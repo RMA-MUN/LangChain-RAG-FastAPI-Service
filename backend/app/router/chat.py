@@ -5,6 +5,7 @@ Agent 流式回答 → done；RAG 失败不阻塞回答（rag_context 置空继�
 """
 import asyncio
 import json
+import time
 import uuid
 
 from fastapi import Depends
@@ -50,6 +51,7 @@ async def query_stream(
         """实时转发 Agentic RAG 思考事件，再转发 Agent 流式响应。"""
         from app.core.logger_handler import logger
 
+        t_req = time.perf_counter()
         rag_context = ""
         thinking_queue = asyncio.Queue()
         rag_done = object()
@@ -85,11 +87,15 @@ async def query_stream(
                 yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
             result = await rag_task
+            rag_ms = (time.perf_counter() - t_req) * 1000
             if result is not None:
                 rag_context = result.context or ""
+            logger.info(f"【端到端耗时】RAG阶段完成 rag={rag_ms:.0f}ms context_chars={len(rag_context)} query={request.query[:50]!r}")
 
             searched_queries = build_pre_searched_queries(request.query, result)
             # 转发 Agent 流式响应
+            first_token_logged = False
+            t_agent = time.perf_counter()
             async for chunk in get_agent_stream_response(
                 request.query,
                 session_id,
@@ -97,7 +103,14 @@ async def query_stream(
                 rag_context=rag_context,
                 rag_searched_queries=searched_queries,
             ):
+                if not first_token_logged:
+                    first_token_logged = True
+                    ttfb_ms = (time.perf_counter() - t_req) * 1000
+                    agent_start_ms = (time.perf_counter() - t_agent) * 1000
+                    logger.info(f"【端到端耗时】Agent首chunk TTFB={ttfb_ms:.0f}ms (RAG={rag_ms:.0f}ms + Agent启动={agent_start_ms:.0f}ms)")
                 yield chunk
+            total_ms = (time.perf_counter() - t_req) * 1000
+            logger.info(f"【端到端耗时】请求完成 total={total_ms:.0f}ms RAG={rag_ms:.0f}ms")
         finally:
             if not rag_task.done():
                 rag_task.cancel()
