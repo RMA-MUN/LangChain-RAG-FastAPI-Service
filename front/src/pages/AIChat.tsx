@@ -81,6 +81,7 @@ export default function AIChat() {
     sessionId: string | null
   } | null>(null)
   const [approveSubmitting, setApproveSubmitting] = useState(false)
+  const [approvalNotice, setApprovalNotice] = useState<string | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
@@ -187,6 +188,7 @@ export default function AIChat() {
   useEffect(() => {
     if (sessionId) {
       setPendingApproval(null)
+      setApprovalNotice(null)
       setRejectReason('')
       setLoadingHistory(true)
       sessionsApi.get(sessionId).then((res) => {
@@ -368,18 +370,26 @@ export default function AIChat() {
   }
 
   const resolveApproval = async (decisions: Array<Record<string, unknown>>) => {
-    if (!pendingApproval) return
+    const snapshot = pendingApproval
+    if (!snapshot) return
     // session_id 多级兜底：审批卡自带的 > URL 参数 > 流里见过的（新会话 URL 无参数时前两者都可能为空）
-    const sid = pendingApproval.sessionId ?? sessionId ?? sessionStorage.getItem('lastSessionId')
+    const sid = snapshot.sessionId ?? sessionId ?? sessionStorage.getItem('lastSessionId')
     if (!sid) {
       setMessages((prev) => [...prev, { role: 'assistant', content: 'Error: 无法确定会话，请刷新页面后重试' }])
       return
     }
+    // 先关弹窗再跑流：resume 全程可能几十秒，弹窗不能一直卡着按钮
+    const approved = decisions[0]?.type === 'approve'
+    const actionCount = snapshot.payload.action_requests.length
+    setPendingApproval(null)
+    setApprovalNotice(approved ? `已同意 ${actionCount} 个操作，正在执行…` : '已拒绝该操作，正在处理…')
     setApproveSubmitting(true)
     contentRef.current = ''
     const requestGeneration = thinkingGenerationRef.current
     thinkingManuallyCollapsedRef.current = false
     setShowThinking(true)
+    // onError 之后后端还会补一个 done 帧，用 failed 区分，避免 done 把错误现场清掉
+    let failed = false
     try {
       await start(
         endpoints.agentResume,
@@ -414,16 +424,24 @@ export default function AIChat() {
               cancelAnimationFrame(rafRef.current)
               rafRef.current = null
             }
-            flushContent()
-            cancelPendingThinking()
-            setShowThinking(false)
-            setPendingApproval(null)
+            if (!failed) {
+              flushContent()
+              cancelPendingThinking()
+              setShowThinking(false)
+            }
+            setApprovalNotice(null)
             setApproveSubmitting(false)
           },
           onError: (error) => {
-            setPendingApproval(null)
+            failed = true
+            setApprovalNotice(null)
             setApproveSubmitting(false)
             setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error}` }])
+            // 后端出错保留 thread 与 pending 供重试：恢复审批卡；
+            // 若中途已来新审批（二次中断）则不动；切走会话也不恢复旧卡
+            if (sid === (sessionId ?? sessionStorage.getItem('lastSessionId'))) {
+              setPendingApproval((prev) => prev ?? snapshot)
+            }
           },
         },
       )
@@ -649,6 +667,15 @@ export default function AIChat() {
           <div ref={messagesEndRef} />
         </div>
       </div>
+
+      {!pendingApproval && approveSubmitting && approvalNotice && (
+        <div className="max-w-3xl mx-auto px-6 pt-4">
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-2.5 text-xs text-[var(--color-text-secondary)]">
+            <Loader2 size={13} className="animate-spin shrink-0" />
+            {approvalNotice}
+          </div>
+        </div>
+      )}
 
       {pendingApproval && (
         <div className="max-w-3xl mx-auto px-6 pt-4">
