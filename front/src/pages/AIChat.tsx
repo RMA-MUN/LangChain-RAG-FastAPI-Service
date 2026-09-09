@@ -9,6 +9,8 @@ import remarkGfm from 'remark-gfm'
 import { useSSE } from '../hooks/useSSE'
 import { sessionsApi } from '../api/sessions'
 import { useThemeStore } from '../stores/useThemeStore'
+import { endpoints } from '../api/endpoints'
+import type { ApprovalPayload, SSEMessage } from '../types/api'
 import { isEvidenceEvent, isReadableRetrievalStatus, isRetrievalStage, isVisibleThinkingStage, mergeThinkingStep, previewEvidence, retrievalStatusLabel, toEvidence } from '../utils/thinkingTrace'
 import type { ThinkingStep } from '../utils/thinkingTrace'
 
@@ -38,17 +40,54 @@ const retrievalToolLabels: Record<string, string> = {
   web_search: 'Web 检索',
 }
 
+const approvalToolLabels: Record<string, string> = {
+  create_note_tool: '创建笔记',
+}
+
+const APPROVAL_PREVIEW_LIMIT = 240
+const APPROVAL_ARG_LIMIT = 200
+
+function truncateText(text: string, limit: number): string {
+  if (text.length <= limit) return text
+  return `${text.slice(0, limit)}…`
+}
+
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[^\n]*\n?/g, '')
+    .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, '$1')
+    .replace(/`([^`]*)`/g, '$1')
+    .replace(/^#{1,6}\s+/gm, '')
+    .replace(/^>\s?/gm, '')
+    .replace(/^\s*(?:[-*+]|\d+[.)])\s+/gm, '')
+    .replace(/(\*\*|__)(.*?)\1/g, '$2')
+    .replace(/^---+\s*$/gm, '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line !== '')
+    .join('\n')
+}
+
 export default function AIChat() {
   const { sessionId } = useParams()
   const navigate = useNavigate()
   const { t } = useTranslation()
   const theme = useThemeStore((s) => s.theme)
   const { start, loading } = useSSE()
+  const [pendingApproval, setPendingApproval] = useState<{
+    runId: string
+    payload: ApprovalPayload
+    sessionId: string | null
+  } | null>(null)
+  const [approveSubmitting, setApproveSubmitting] = useState(false)
+  const [rejectReason, setRejectReason] = useState('')
   const [input, setInput] = useState('')
   const [messages, setMessages] = useState<Message[]>([])
   const [currentThinking, setCurrentThinking] = useState('')
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([])
   const [expandedEvidence, setExpandedEvidence] = useState<Record<string, boolean>>({})
+  const [expandedApproval, setExpandedApproval] = useState<Record<string, boolean>>({})
   const [showThinking, setShowThinking] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -121,20 +160,49 @@ export default function AIChat() {
     }
   }, [cancelPendingThinking])
 
+  const fetchPendingApproval = useCallback(async () => {
+    // 新会话 URL 可能没有 :sessionId 参数，用流里见过的会话 id 兜底
+    const sid = sessionId ?? sessionStorage.getItem('lastSessionId')
+    if (!sid) return
+    try {
+      const res = await sessionsApi.getPending(sid)
+      const data = res.data as {
+        run_id?: string
+        payload?: ApprovalPayload
+        query?: string
+      } | null
+      if (data?.run_id && data?.payload) {
+        setPendingApproval({ runId: data.run_id, payload: data.payload, sessionId: sid })
+        if (data.query) {
+          setMessages((prev) => [...prev, { role: 'user', content: data.query ?? '' }])
+        }
+      } else {
+        setPendingApproval(null)
+      }
+    } catch {
+      // 静默失败：用户仍可重发消息触发后端守卫提示
+    }
+  }, [sessionId])
+
   useEffect(() => {
     if (sessionId) {
+      setPendingApproval(null)
+      setRejectReason('')
       setLoadingHistory(true)
       sessionsApi.get(sessionId).then((res) => {
-        const data = res.data as { history?: [string, string][] } | undefined
+        const data = res.data as { history?: [string, string][]; pending_run_id?: string | null } | undefined
         if (data?.history) {
           setMessages(data.history.flatMap(([query, response]) => [
             { role: 'user', content: query },
             { role: 'assistant', content: response },
           ]))
         }
+        if (data?.pending_run_id) {
+          fetchPendingApproval()
+        }
       }).catch(() => {}).finally(() => setLoadingHistory(false))
     }
-  }, [sessionId])
+  }, [sessionId, fetchPendingApproval])
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -150,7 +218,7 @@ export default function AIChat() {
   }, [sessionId, navigate])
 
   const handleSend = useCallback(async (query: string) => {
-    if (!query.trim() || loading) return
+    if (!query.trim() || loading || pendingApproval) return
 
     const userMsg: Message = { role: 'user', content: query }
     cancelPendingThinking()
@@ -240,6 +308,11 @@ export default function AIChat() {
             })
           }
         },
+        onInterrupt: (msg: SSEMessage) => {
+          if (!msg.run_id || !msg.payload) return
+          // interrupt 帧自带 session_id：新会话 URL 无参数时靠它恢复审批
+          setPendingApproval({ runId: msg.run_id, payload: msg.payload, sessionId: msg.session_id ?? null })
+        },
         onDone: (newSessionId) => {
           if (thinkingGenerationRef.current !== requestGeneration || thinkingTerminalGenerationRef.current === requestGeneration) return
           if (rafRef.current !== null) {
@@ -262,6 +335,11 @@ export default function AIChat() {
         },
         onError: (error) => {
           if (thinkingGenerationRef.current !== requestGeneration || thinkingTerminalGenerationRef.current === requestGeneration) return
+          if (error === 'PENDING_EXISTS' && sessionId) {
+            // 会话尚有未决审批：拉取 pending 恢复审批卡，不显示错误气泡
+            fetchPendingApproval()
+            return
+          }
           const pending = pendingThinkingRef.current.splice(0)
           if (pending.length > 0) {
             setThinkingSteps((prev) => pending.reduce(mergeIncomingThinkingStep, prev))
@@ -276,7 +354,83 @@ export default function AIChat() {
         },
       }
     )
-  }, [loading, sessionId, start, navigate, flushContent, cancelPendingThinking])
+  }, [loading, sessionId, start, navigate, flushContent, cancelPendingThinking, pendingApproval, fetchPendingApproval])
+
+  const handleApprove = async () => {
+    if (!pendingApproval || approveSubmitting) return
+    await resolveApproval([{ type: 'approve' }])
+  }
+
+  const handleReject = async () => {
+    if (!pendingApproval || approveSubmitting) return
+    await resolveApproval([{ type: 'reject', message: rejectReason.trim() || '用户拒绝了该操作' }])
+    setRejectReason('')
+  }
+
+  const resolveApproval = async (decisions: Array<Record<string, unknown>>) => {
+    if (!pendingApproval) return
+    // session_id 多级兜底：审批卡自带的 > URL 参数 > 流里见过的（新会话 URL 无参数时前两者都可能为空）
+    const sid = pendingApproval.sessionId ?? sessionId ?? sessionStorage.getItem('lastSessionId')
+    if (!sid) {
+      setMessages((prev) => [...prev, { role: 'assistant', content: 'Error: 无法确定会话，请刷新页面后重试' }])
+      return
+    }
+    setApproveSubmitting(true)
+    contentRef.current = ''
+    const requestGeneration = thinkingGenerationRef.current
+    thinkingManuallyCollapsedRef.current = false
+    setShowThinking(true)
+    try {
+      await start(
+        endpoints.agentResume,
+        { session_id: sid, decisions },
+        {
+          onThinking: (stage, content, details) => {
+            if (thinkingGenerationRef.current !== requestGeneration) return
+            if (!isVisibleThinkingStage(stage)) return
+            if (!thinkingManuallyCollapsedRef.current) setShowThinking(true)
+            const step: ThinkingStep = {
+              stage, content: content || '', details,
+            }
+            setThinkingSteps((prev) => mergeIncomingThinkingStep(prev, step))
+          },
+          onResponse: (content) => {
+            if (thinkingGenerationRef.current !== requestGeneration) return
+            contentRef.current += content
+            if (rafRef.current === null) {
+              rafRef.current = requestAnimationFrame(() => {
+                rafRef.current = null
+                if (thinkingGenerationRef.current !== requestGeneration) return
+                flushContent()
+              })
+            }
+          },
+          onInterrupt: (msg) => {
+            if (!msg.run_id || !msg.payload) return
+            setPendingApproval({ runId: msg.run_id, payload: msg.payload, sessionId: msg.session_id ?? null })
+          },
+          onDone: () => {
+            if (rafRef.current !== null) {
+              cancelAnimationFrame(rafRef.current)
+              rafRef.current = null
+            }
+            flushContent()
+            cancelPendingThinking()
+            setShowThinking(false)
+            setPendingApproval(null)
+            setApproveSubmitting(false)
+          },
+          onError: (error) => {
+            setPendingApproval(null)
+            setApproveSubmitting(false)
+            setMessages((prev) => [...prev, { role: 'assistant', content: `Error: ${error}` }])
+          },
+        },
+      )
+    } finally {
+      setApproveSubmitting(false)
+    }
+  }
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -496,6 +650,117 @@ export default function AIChat() {
         </div>
       </div>
 
+      {pendingApproval && (
+        <div className="max-w-3xl mx-auto px-6 pt-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] p-4 space-y-3">
+            <div className="text-sm font-medium text-[var(--color-text)]">
+              需要确认以下操作
+            </div>
+            {pendingApproval.payload.action_requests.map((req, i) => {
+              const expandKey = `${pendingApproval.runId}:${i}`
+              const expanded = expandedApproval[expandKey] === true
+              const toggleExpanded = () => setExpandedApproval((prev) => ({ ...prev, [expandKey]: !expanded }))
+              const args = req.args ?? {}
+              const title = typeof args.title === 'string' ? args.title : ''
+              const content = typeof args.content === 'string' ? args.content : ''
+              const isNote = req.name === 'create_note_tool' && (title !== '' || content !== '')
+              const description = req.description ?? ''
+              const descExpanded = expandedApproval[`${expandKey}:desc`] === true
+              return (
+                <div key={`${req.name}-${i}`} className="rounded-md bg-[var(--color-bg-secondary)] p-3 text-xs space-y-2">
+                  <div className="font-medium text-[var(--color-text)] text-sm">
+                    {approvalToolLabels[req.name] || req.name}
+                    <span className="ml-2 font-normal text-[var(--color-text-tertiary)]">{req.name}</span>
+                  </div>
+                  {description !== '' && (
+                    <p className={`leading-relaxed text-[var(--color-text-secondary)]${descExpanded ? ' max-h-96 overflow-y-auto pr-2' : ''}`}>
+                      {descExpanded ? stripMarkdown(description) : truncateText(stripMarkdown(description), APPROVAL_PREVIEW_LIMIT)}
+                      {description.length > APPROVAL_PREVIEW_LIMIT && (
+                        <button
+                          type="button"
+                          onClick={() => setExpandedApproval((prev) => ({ ...prev, [`${expandKey}:desc`]: !descExpanded }))}
+                          className="ml-1 text-[var(--color-accent)] hover:underline"
+                        >
+                          {descExpanded ? '收起' : '展开'}
+                        </button>
+                      )}
+                    </p>
+                  )}
+                  {isNote ? (
+                    <>
+                      {title !== '' && (
+                        <div className="flex gap-2">
+                          <span className="shrink-0 text-[var(--color-text-tertiary)]">标题：</span>
+                          <span className="font-medium text-[var(--color-text)]">{title}</span>
+                        </div>
+                      )}
+                      {content !== '' && (
+                        <div>
+                          <div className="text-[var(--color-text-tertiary)]">正文预览：</div>
+                          {expanded ? (
+                            <div className={`prose prose-sm max-w-none markdown-body${theme === 'dark' ? ' prose-invert' : ''} max-h-96 overflow-y-auto pr-2`}>
+                              <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeHighlight, rehypeRaw]}>
+                                {content}
+                              </ReactMarkdown>
+                            </div>
+                          ) : (
+                            <p className="whitespace-pre-wrap break-all text-[var(--color-text-secondary)]">
+                              {truncateText(stripMarkdown(content), APPROVAL_PREVIEW_LIMIT)}
+                            </p>
+                          )}
+                          {content.length > APPROVAL_PREVIEW_LIMIT && (
+                            <button
+                              type="button"
+                              onClick={toggleExpanded}
+                              className="mt-1 text-[var(--color-accent)] hover:underline"
+                            >
+                              {expanded ? '收起' : '展开全文'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="space-y-1">
+                      {Object.entries(args).map(([k, v]) => (
+                        <div key={k} className="flex gap-2">
+                          <span className="shrink-0 text-[var(--color-text-tertiary)]">{k}：</span>
+                          <span className="whitespace-pre-wrap break-all text-[var(--color-text-secondary)]">
+                            {truncateText(typeof v === 'string' ? v : JSON.stringify(v), APPROVAL_ARG_LIMIT)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleApprove}
+                disabled={approveSubmitting}
+                className="px-4 py-1.5 rounded-md bg-[var(--color-accent)] text-white text-sm disabled:opacity-50"
+              >
+                同意
+              </button>
+              <button
+                onClick={handleReject}
+                disabled={approveSubmitting}
+                className="px-4 py-1.5 rounded-md border border-[var(--color-border)] text-sm disabled:opacity-50"
+              >
+                拒绝
+              </button>
+              <input
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="拒绝原因（可选）"
+                className="flex-1 min-w-0 px-3 py-1.5 rounded-md border border-[var(--color-border)] bg-[var(--color-bg)] text-xs"
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="border-t border-[var(--color-border)] bg-[var(--color-card)] px-6 py-4">
         <div className="max-w-3xl mx-auto flex gap-3">
           <textarea
@@ -508,7 +773,7 @@ export default function AIChat() {
           />
           <button
             onClick={() => handleSend(input)}
-            disabled={!input.trim() || loading}
+            disabled={!input.trim() || loading || approveSubmitting}
             className="flex items-center justify-center w-10 h-10 rounded-lg bg-[var(--color-accent)] text-white hover:bg-blue-700 disabled:opacity-40 transition-colors shrink-0"
           >
             {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}

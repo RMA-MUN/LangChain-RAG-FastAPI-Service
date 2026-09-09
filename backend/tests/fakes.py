@@ -6,6 +6,7 @@
 import asyncio
 import fnmatch
 import itertools
+import types
 import uuid as uuidlib
 
 from langchain_core.documents import Document
@@ -141,11 +142,19 @@ class FakeAgent:
         self.events = events or []
         self.inputs = []
 
-    async def ainvoke(self, inputs: dict):
+    async def ainvoke(self, inputs: dict, config: dict | None = None):
         self.inputs.append(inputs)
         return {"messages": self.messages}
 
-    async def astream_events(self, inputs: dict, version: str = "v2"):
+    async def astream_events(self, inputs, version: str = "v2", config: dict | None = None):
         self.inputs.append(inputs)
         for event in self.events:
             yield event
+
+    async def aget_state(self, config: dict):
+        """编排层在 run 结束后检测中断点：默认无中断（next 为空）。"""
+        return types.SimpleNamespace(
+            next=(),
+            values={"messages": self.messages},
+            interrupts=(),
+        )
